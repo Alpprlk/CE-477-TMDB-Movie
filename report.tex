@@ -68,5 +68,45 @@ We will distinguish predictive features from descriptive variables. In particula
 
 The rest of this report is organized as follows. Section II reviews related work. Section III describes the data set, its metadata, statistics, visualizations, and data-quality issues.
 
+\section{Background and Related Work}
+
+\subsection{Box-Office Prediction}
+
+Sharda and Delen \cite{sharda2006} formulated box-office prediction as a classification problem. They divided films into nine categories, ranging from flop to blockbuster, and applied neural networks. Their study employed 10-fold cross-validation and reported that neural networks achieved better performance than the statistical techniques used for comparison.
+
+Udandarao and Gupta \cite{udandarao2024}, on the other hand, approached movie revenue prediction as a regression problem and compared linear regression, decision trees, random forest, bagging, XGBoost, and gradient boosting models. Their feature set included genre, MPAA rating, release year, IMDb rating, budget, runtime, and other movie-related information. Their work provides a recent example of applying multiple regression models to movie-revenue prediction. However, some of their features, such as ratings and vote-related information, would not be suitable for a strictly pre-release prediction setting.
+
+\subsection{Studies Based on TMDB Data}
+
+Jalili Torkamani et al. \cite{torkamani2026} analyzed release season, production budget, and financial performance using a larger TMDB dataset. Their random-forest revenue model achieved an $R^2$ value of 0.652, and their analysis showed that production budget and market-interest variables were more influential than release season. Although their dataset differs from the TMDB 5000 sample used in this project, their study motivates a careful investigation of budget and release-related variables.
+
+\subsection{Film Metadata for Recommendation}
+
+Percevali and Manzato \cite{percevali2013} evaluated different types of movie metadata for content-based recommendation using MovieLens and IMDb data. They found that genre information produced the best predictions among the metadata types they tested. This finding supports the use of genres, and possibly keywords, as informative structured features and as items for association mining and clustering.
+
+\begin{table}[!t]
+\caption{Summary of the Data Set}
+\label{tab:dataset_summary}
+\centering
+\begin{tabular}{p{0.28\linewidth} p{0.62\linewidth}}
+\hline
+\textbf{Item} & \textbf{Value} \\
+\hline
+Instances & 4,803 films; one row per film in both files \\
+Attributes & 20 in movies: 4 integer, 3 float, 13 text; 4 in credits \\
+Release dates & 1916-09-04 to 2017-02-03; 1 missing \\
+Status & Released: 4,795; Rumored: 5; Post Production: 3 \\
+Languages & 37 original languages; English: 4,505, 93.80\% \\
+Genres & 20 distinct genres; 2.53 per film on average; maximum 7 \\
+Keywords & 9,813 distinct keywords; 7.54 per film on average \\
+Duplicates & No duplicate rows or identifiers; 3 title strings occur twice \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Summary and Positioning}
+
+Previous studies on movie-performance modeling have typically involved production and descriptive metadata, and both linear and ensemble models have appeared in the literature. This project will begin with interpretable baseline models and compare them with stronger ensemble methods. It will also explicitly differentiate between variables that can be used for pre-release prediction and variables that characterize post-release audience response. In addition, suspicious zero financial values will be treated as data-quality issues rather than being assumed to be valid real values.
+
 
 \end{document}

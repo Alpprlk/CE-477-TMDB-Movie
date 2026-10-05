@@ -7,8 +7,8 @@
 \usepackage{graphicx}
 \usepackage{textcomp}
 \usepackage{xcolor}
-
-\begin{document}
+\usepackage{url}
+\usepackage{enumitem}
 
 \title{CE 477 Term Project: Predicting Movie Revenue and Ratings from TMDB Metadata}
 
@@ -42,17 +42,31 @@
     omer.ergin@std.izmirekonomi.edu.tr}
 }
 
+\begin{document}
 \maketitle
 
 \begin{abstract}
+Film production is an economically prominent industry, and both commercial performance and audience reception are crucial to estimate before release. In this term project, as a group we study the TMDB 5000 Movie Data Set, which contains metadata for 4,803 films and covers recorded release dates from 1916 to 2017. Data includes budget, revenue, genres, keywords, runtime, language, popularity, and audience ratings. Our main goals are to use these data to reach conclusions on the success of a potential movie or an upcoming one, investigate genre and keyword co-occurrence through association mining, and explore natural movie groups through clustering. This report presents our initial motivation and goals, reviews the related work of the project, and describes the data set. We identify important data-quality issues: 21.59\% of films have a budget value of zero and 29.71\% have a revenue value of zero, values that are likely to represent missing or unreported financial information in many cases. In addition, audience-derived variables such as \texttt{vote\_average} and \texttt{vote\_count}, and the snapshot-based \texttt{popularity} measure, should not be treated as pre-release predictors of revenue because this would introduce information leakage. Several attributes are stored as JSON-like text and require parsing before analysis.
+
+Our project repository is available at \url{https://github.com/Alpprlk/CE-477-TMDB-Movie}.
 \end{abstract}
 
 \section{Introduction}
+As production of a film requires a large investment before release of a movie, outcomes of the project can be used by producers and investors to have a prediction of financial success of the movie prior to release. Also, makes it possible to make a prediction of audience reaction, therefore it has been studied as a decision-support problem for studios, distributors, and exhibitors in earlier studies. Besides revenue, audience ratings are an important indicator of how a film is received and are also useful in recommendation and audience-analysis settings.
 
-\section{Background and Related Work}
+We use the TMDB 5000 Movie Data Set, which contains metadata for 4,803 films obtained from The Movie Database (TMDb) and distributed on Kaggle.
 
-\section{Data Set Description}
+During the term, we plan to investigate the following questions:
+\begin{enumerate}[leftmargin=*,nosep]
+    \item Which attributes that are available before release, such as budget, runtime, genres, language, and release month, can predict movie revenue? This is a regression problem with \texttt{revenue} as the target.
+    \item Can films be classified as highly rated or not from metadata that does not directly encode post-release audience reaction? This is a classification problem based on \texttt{vote\_average}.
+    \item Which genres and keywords frequently occur together? We plan to study this with association mining.
+    \item Do films form natural groups according to variables such as budget, runtime, genre, and, for descriptive clustering, popularity?
+\end{enumerate}
 
-\bibliographystyle{IEEEtran}
+We will distinguish predictive features from descriptive variables. In particular, \texttt{vote\_average} and \texttt{vote\_count} are only observed after audience voting has occurred, while the \texttt{popularity} value in this static data set is a time-dependent snapshot. Using these variables as if they were available before release would make a pre-release revenue model unrealistically optimistic.
+
+The rest of this report is organized as follows. Section II reviews related work. Section III describes the data set, its metadata, statistics, visualizations, and data-quality issues.
+
 
 \end{document}

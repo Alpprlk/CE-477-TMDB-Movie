@@ -209,4 +209,64 @@ Vote count & 977.29 & 471.00 & 1414.31 & 0 & 13752 \\
 \parbox{0.98\columnwidth}{\scriptsize \textit{Note:} Runtime statistics in the all-records section are based on 4,801 non-missing observations; all other full-data numeric statistics use 4,803 records.}
 \end{table}
 
+\subsection{Data Quality}
+Explicit missing values. The main explicit missing values occur in homepage (3,091 films; 64.36\%) and tagline (844 films; 17.57\%). In addition, overview is missing for 3 films, runtime for 2, and release date for 1. Figure~\ref{fig:missing} visualizes these counts. Some JSON-like attributes also contain empty lists: 412 films have no keywords, 351 have no production company, 174 have no production country, 86 have no spoken language, and 28 have no genre. In the credits file, 43 films have an empty cast and 28 have an empty crew.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.92\columnwidth]{missing_values.png}
+\caption{Explicit missing values in the movies CSV.}
+\label{fig:missing}
+\end{figure}
+
+Zero and suspicious values. Table~\ref{tab:quality} summarizes numeric values that require additional attention. A budget of zero is recorded for 1,037 films (21.59\%) and revenue is zero for 1,427 films (29.71\%); both are zero for 890 films. These zeros are better treated as potentially missing or unreported financial values unless independently verified, rather than being automatically interpreted as genuine zero-dollar budgets or revenues. Only 3,229 films (67.23\%) have both positive budget and positive revenue. There are also 35 positive budget values and 27 positive revenue values below 10,000; these are unusually small and should be investigated rather than automatically labeled as recording errors. Thirty-five films have runtime equal to zero.
+
+
+Of the 4,803 films, 62 have no recorded votes and 63 have vote average = 0. Moreover, 411 films (8.56\%) have fewer than 10 votes, so rating reliability varies considerably across films.
+
+\begin{table}[t]
+\caption{Zero and Suspicious Values in Numeric Attributes}
+\label{tab:quality}
+\centering
+\footnotesize
+\begin{tabular}{lr}
+\toprule
+Condition & Films \\
+\midrule
+\texttt{budget = 0} & 1,037 \\
+\texttt{revenue = 0} & 1,427 \\
+\texttt{budget = 0 and revenue = 0} & 890 \\
+\texttt{budget > 0 and revenue > 0} & 3,229 \\
+\texttt{budget between 1 and 9,999} & 35 \\
+\texttt{revenue between 1 and 9,999} & 27 \\
+\texttt{runtime = 0} & 35 \\
+\texttt{vote\_count = 0} & 62 \\
+\texttt{vote\_average = 0} & 63 \\
+\texttt{vote\_count < 10} & 411 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Attributes unsuitable for pre-release prediction. Within the 3,229 films with positive budget and revenue, revenue has a Pearson correlation of 0.756 with vote count, 0.705 with budget, and 0.602 with popularity. The large correlations with audience-response variables may improve apparent predictive accuracy, but they do not represent information that can safely be assumed available before release. Therefore, for pre-release revenue prediction we plan to exclude vote average, vote count, and the snapshot-based popularity feature. For pre-release rating prediction, vote count and popularity will likewise be excluded.
+
+Figure~\ref{fig:budgetrevenue} illustrates the relationship between positive budget and revenue values on logarithmic scales. The wide spread around the overall upward trend suggests that budget alone is not sufficient to explain revenue.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.92\columnwidth]{budget_revenue.png}
+\caption{Budget versus revenue for films with positive financial values. Logarithmic axes are used because both variables are strongly right-skewed.}
+\label{fig:budgetrevenue}
+\end{figure}
+
+Bias and limitations. English is the original language of 93.80\% of the films, so the data set mainly represents English-language cinema. The data end in February 2017. Monetary values are not adjusted for inflation, so budgets and revenues from different decades are not directly comparable. In addition, audience ratings are based on widely varying numbers of votes, from zero to 13,752, which means that the reliability of vote average is not uniform across films.
+
+\section*{AI Use Disclosure}
+Generative AI tools were used as supporting tools for language editing,
+LaTeX formatting, and reviewing parts of the report. The group members
+reviewed the AI-assisted outputs, verified the reported results, and
+made the final decisions about the submitted content.
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
 \end{document}

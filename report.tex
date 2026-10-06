@@ -9,6 +9,7 @@
 \usepackage{xcolor}
 \usepackage{url}
 \usepackage{enumitem}
+\usepackage{booktabs}
 
 \title{CE 477 Term Project: Predicting Movie Revenue and Ratings from TMDB Metadata}
 
@@ -84,29 +85,128 @@ Jalili Torkamani et al. \cite{torkamani2026} analyzed release season, production
 
 Percevali and Manzato \cite{percevali2013} evaluated different types of movie metadata for content-based recommendation using MovieLens and IMDb data. They found that genre information produced the best predictions among the metadata types they tested. This finding supports the use of genres, and possibly keywords, as informative structured features and as items for association mining and clustering.
 
-\begin{table}[!t]
-\caption{Summary of the Data Set}
-\label{tab:dataset_summary}
-\centering
-\begin{tabular}{p{0.28\linewidth} p{0.62\linewidth}}
-\hline
-\textbf{Item} & \textbf{Value} \\
-\hline
-Instances & 4,803 films; one row per film in both files \\
-Attributes & 20 in movies: 4 integer, 3 float, 13 text; 4 in credits \\
-Release dates & 1916-09-04 to 2017-02-03; 1 missing \\
-Status & Released: 4,795; Rumored: 5; Post Production: 3 \\
-Languages & 37 original languages; English: 4,505, 93.80\% \\
-Genres & 20 distinct genres; 2.53 per film on average; maximum 7 \\
-Keywords & 9,813 distinct keywords; 7.54 per film on average \\
-Duplicates & No duplicate rows or identifiers; 3 title strings occur twice \\
-\hline
-\end{tabular}
-\end{table}
+
 
 \subsection{Summary and Positioning}
 
 Previous studies on movie-performance modeling have typically involved production and descriptive metadata, and both linear and ensemble models have appeared in the literature. This project will begin with interpretable baseline models and compare them with stronger ensemble methods. It will also explicitly differentiate between variables that can be used for pre-release prediction and variables that characterize post-release audience response. In addition, suspicious zero financial values will be treated as data-quality issues rather than being assumed to be valid real values.
 
+
+\section{Data Set Description}
+\subsection{Source and Metadata}
+The TMDB 5000 Movie Data Set is available on Kaggle and contains
+movie metadata from The Movie Database (TMDb) \cite{tmdb,kaggle}.
+It consists of two CSV files covering the same 4,803 movies.
+The \texttt{tmdb\_5000\_movies.csv} file is approximately 5.7 MB
+and contains 20 attributes. The \texttt{tmdb\_5000\_credits.csv}
+file is approximately 40.0 MB and contains four attributes:
+\texttt{movie\_id}, \texttt{title}, \texttt{cast}, and \texttt{crew}.
+
+The two files can be joined using the \texttt{id} and
+\texttt{movie\_id} columns. All 4,803 movie IDs and titles match
+between the two files. The release dates range from 4 September
+1916 to 3 February 2017, with only one missing release date.
+The median release year is 2005, and 72.8\% of the records with
+release-year information are from 2000 or later.
+
+The dataset does not clearly state the currency used for budget
+and revenue. In this report, we assume that these values are in
+US dollars. Since the currency is not explicitly given in the
+CSV files, we consider this as a limitation of the dataset.
+
+\begin{table}[t]
+\caption{Summary of the Data Set}
+\label{tab:summary}
+\centering
+\footnotesize
+\begin{tabular}{p{0.24\columnwidth}p{0.68\columnwidth}}
+\toprule
+Item & Value \\
+\midrule
+Instances & 4,803 films (one row per film in both files) \\
+Attributes & 20 in movies (4 integer, 3 float, 13 text); 4 in credits \\
+Release dates & 1916-09-04 to 2017-02-03; 1 missing \\
+Status & Released: 4,795; Rumored: 5; Post Production: 3 \\
+Languages & 37 original languages; English: 4,505 (93.80\%) \\
+Genres & 20 distinct genres; 2.53 per film on average; maximum 7 \\
+Keywords & 9,813 distinct keywords; 7.54 per film on average \\
+Duplicates & No duplicate rows or identifiers; 3 title strings occur twice \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Attributes}
+Some attributes in the dataset are stored in a JSON-like format.
+In the movies file, these are \texttt{genres}, \texttt{keywords},
+\texttt{production\_companies}, \texttt{production\_countries},
+and \texttt{spoken\_languages}. The \texttt{cast} and \texttt{crew}
+attributes in the credits file are stored in a similar way.
+These fields need to be parsed before we can use them in most analyses.
+
+\begin{table}[t]
+\caption{Attributes of the Data Set by Group}
+\label{tab:attrs}
+\centering
+\scriptsize
+\begin{tabular}{p{0.22\columnwidth}p{0.70\columnwidth}}
+\toprule
+Group & Attributes \\
+\midrule
+Identification & \texttt{id}; \texttt{title}; \texttt{original\_title} \\
+Finance & \texttt{budget}; \texttt{revenue} \\
+Film properties & \texttt{runtime}; \texttt{release\_date}; \texttt{status}; \texttt{original\_language} \\
+Audience & \texttt{popularity}; \texttt{vote\_average}; \texttt{vote\_count} \\
+JSON lists & \texttt{genres}; \texttt{keywords}; \texttt{production\_companies}; \texttt{production\_countries}; \texttt{spoken\_languages} \\
+Free text & \texttt{overview}; \texttt{tagline}; \texttt{homepage} \\
+Credits file & \texttt{movie\_id}; \texttt{title}; \texttt{cast}; \texttt{crew} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Statistics}
+Table~\ref{tab:numeric} shows the main descriptive statistics calculated
+from the CSV files. Budget and revenue values are shown in millions to
+make the table easier to read. The average budget is 29.05 million,
+while the median budget is 15.00 million. For revenue, the average is
+82.26 million and the median is 19.17 million. This difference shows
+that some movies have much larger financial values than most of the
+dataset.
+
+We also looked at the 3,229 movies that have both a positive budget
+and positive revenue. In this group, the average revenue is 121.24
+million and the median is 55.18 million. The maximum revenue is
+2,787.97 million. Even after removing the zero budget and revenue
+records, the financial values still vary considerably.
+
+\begin{table}[t]
+\caption{Descriptive Statistics of Numeric Attributes}
+\label{tab:numeric}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3.2pt}
+\begin{tabular}{lrrrrr}
+\toprule
+Attribute & Mean & Median & Std. & Min & Max \\
+\midrule
+\multicolumn{6}{l}{\emph{All records ($N=4{,}803$)}}\\
+Budget (M) & 29.05 & 15.00 & 40.72 & 0.00 & 380.00 \\
+Revenue (M) & 82.26 & 19.17 & 162.86 & 0.00 & 2787.97 \\
+Runtime & 106.88 & 103.00 & 22.61 & 0.00 & 338.00 \\
+Popularity & 21.49 & 12.92 & 31.82 & 0.00 & 875.58 \\
+Vote average & 6.09 & 6.20 & 1.19 & 0.00 & 10.00 \\
+Vote count & 690.22 & 235.00 & 1234.59 & 0 & 13752 \\
+\midrule
+\multicolumn{6}{l}{\emph{Positive budget and revenue ($N=3{,}229$)}}\\
+Budget (M) & 40.65 & 25.00 & 44.40 & 0.000001 & 380.00 \\
+Revenue (M) & 121.24 & 55.18 & 186.30 & 0.000005 & 2787.97 \\
+Runtime & 110.72 & 107.00 & 20.97 & 41.00 & 338.00 \\
+Popularity & 29.03 & 20.41 & 36.17 & 0.02 & 875.58 \\
+Vote average & 6.31 & 6.30 & 0.87 & 0.00 & 8.50 \\
+Vote count & 977.29 & 471.00 & 1414.31 & 0 & 13752 \\
+\bottomrule
+\end{tabular}
+\vspace{1mm}
+\parbox{0.98\columnwidth}{\scriptsize \textit{Note:} Runtime statistics in the all-records section are based on 4,801 non-missing observations; all other full-data numeric statistics use 4,803 records.}
+\end{table}
 
 \end{document}

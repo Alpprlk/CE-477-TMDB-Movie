@@ -166,9 +166,14 @@ def scatter_pair(df, xcol, ycol, fname, suptitle, annotate_top=3):
 
 
 def main():
+    # Resolve paths relative to where this script file lives
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    default_csv = os.path.join(base_dir, "data", "tmdb_5000_movies.csv")
+    default_figures = os.path.join(base_dir, "figures")
+
     ap = argparse.ArgumentParser()
-    ap.add_argument("--data", default="data/tmdb_5000_movies.csv")
-    ap.add_argument("--out", default="figures")
+    ap.add_argument("--data", default=default_csv)
+    ap.add_argument("--out", default=default_figures)
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
 

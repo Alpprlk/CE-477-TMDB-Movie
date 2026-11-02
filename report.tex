@@ -259,7 +259,179 @@ Figure~\ref{fig:budgetrevenue} illustrates the relationship between positive bud
 \end{figure}
 
 Bias and limitations. English is the original language of 93.80\% of the films, so the data set mainly represents English-language cinema. The data end in February 2017. Monetary values are not adjusted for inflation, so budgets and revenues from different decades are not directly comparable. In addition, audience ratings are based on widely varying numbers of votes, from zero to 13,752, which means that the reliability of vote average is not uniform across films.
-
+\subsection{Numeric Distributions}
+ 
+Figure~\ref{fig:box_all} shows box plots of the six numeric attributes
+over all 4,803 films, and Figure~\ref{fig:box_pos} repeats them for the
+3,229 films with both positive budget and positive revenue; there,
+the skewed attributes are plotted on a $\log_{10}$ scale. Figure~\ref{fig:hist}
+shows histograms of runtime, vote average, release year and the
+log-transformed financial and vote-count attributes.
+ 
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.85\textwidth]{figures/fig_boxplots_all.png}
+  \caption{Box plots of the numeric attributes for all 4,803 films
+  (budget and revenue in millions of USD). Points beyond the whiskers
+  (1.5$\times$IQR) are shown individually.}
+  \label{fig:box_all}
+\end{figure*}
+ 
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.85\textwidth]{figures/fig_boxplots_positive.png}
+  \caption{Box plots for the 3,229 films with positive budget and
+  revenue. Budget and revenue are shown as $\log_{10}$ of their value in
+  millions of USD (e.g., 2 = 100M); popularity and vote count are shown as
+  $\log_{10}$ of their raw values.}
+  \label{fig:box_pos}
+\end{figure*}
+ 
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.85\textwidth]{figures/fig_histograms.png}
+  \caption{Histograms of runtime ($>0$), vote average (films with at
+  least 10 votes), release year, and $\log_{10}$ of budget, revenue and
+  vote count (positive values only). Dashed lines mark the medians.}
+  \label{fig:hist}
+\end{figure*}
+ 
+\textit{Financial attributes.}
+Budget and revenue are strongly right-skewed. In the full data the mean
+budget (29.05M) is almost twice the median (15.00M), and the mean revenue
+(82.26M) is more than four times the median (19.17M), with the revenue
+maximum reaching 2,787.97M (Table~\ref{tab:numeric}). The skewness is 2.44 for
+budget and 4.44 for revenue, and 6.7\% and 9.8\% of the films are flagged
+as outliers by the 1.5$\times$IQR rule (Figure~\ref{fig:box_all}). These
+outliers are mostly genuine blockbusters rather than errors, so we do not
+plan to delete them; instead we will use a log transform for modeling.
+After a $\log_{10}$ transform (Figure~\ref{fig:hist}) the positive budgets
+and revenues look much closer to a symmetric distribution, which supports
+this choice. The box plot of the full data is also visibly affected by the
+1,037 zero budgets and 1,427 zero revenues: the lower quartile of revenue
+is exactly 0, because more than a quarter of the films have a revenue of
+zero, and the lower quartile of budget is only 0.79M. These zeros are
+probably missing rather than real values. Restricting the data to positive
+records (Figure~\ref{fig:box_pos}) raises the median revenue from 19.17M to
+55.18M and the median budget from 15.00M to 25.00M, which shows how
+strongly the zeros influence any statistic computed on the raw columns.
+Even in the positive subset, the skewness remains 2.09 for budget and
+3.82 for revenue, so the log transform is still needed. In log space
+(Figure~\ref{fig:box_pos}) the few extremely small values (budgets and
+revenues of only a few dollars) appear as isolated low outliers, which
+matches the suspicious values reported in Table~\ref{tab:quality}.
+ 
+\textit{Runtime.}
+Runtime is the most symmetric attribute (mean 106.88, median 103.00 min,
+skewness 0.72). Half of the films last between 94 and 118 minutes
+(Q1--Q3), and 3.8\% of the films are flagged as outliers: very short
+films, the 35 films with runtime zero, and a small number of very long
+films, up to 338 minutes. The zero runtimes are treated as missing values
+rather than true durations. Among films with positive budget and revenue,
+the skewness rises to 1.69 because the very short films are removed while
+the long films remain.
+ 
+\textit{Audience attributes.}
+Vote average is concentrated around 6--7 (Q1--Q3 of 5.6--6.8, median
+6.20) and is left-skewed (skewness $-1.96$): a handful of films have
+values near 0, and these are almost all films with zero or very few votes
+(63 films with average zero, 411 films with fewer than 10 votes). Once
+these films are removed, the skewness in the positive subset falls to
+$-0.61$ and the histogram in Figure~\ref{fig:hist} is approximately
+bell-shaped with a peak near \textcolor{red}{6.3}. Popularity (median 12.92, mean 21.49,
+maximum 875.58, skewness 9.72) and vote count (median 235, mean 690.22,
+maximum 13,752, skewness 3.82) are heavily right-skewed, with 5.7\% and
+10.5\% of films flagged as outliers. A few very popular films dominate the
+upper tail, so a log transform is again appropriate.
+ 
+\textit{Release year.}
+The histogram of release years is strongly left-skewed: only a small
+number of films come from before 1980, whereas most films are from the
+2000s, consistent with the 72.8\% share of films released in 2000 or
+later. Any model trained on this data will therefore mainly learn the
+behavior of recent films.
+ 
+\textit{Implication for preprocessing.}
+In summary, almost all numeric attributes except runtime are heavily
+skewed, contain many legitimate extreme values, and contain zeros that
+behave like missing data. We will therefore (i) treat zero budget,
+revenue and runtime as missing, (ii) apply log transforms to budget,
+revenue, popularity and vote count, and (iii) prefer robust statistics
+(median, IQR) over mean and standard deviation when describing them.
+ 
+\subsection{Scatter Plot Findings}
+ 
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.85\textwidth]{figures/fig_scatter_budget_revenue.png}
+  \caption{Budget versus revenue for films with positive values
+  ($n=3{,}229$): (a) linear scale in millions of USD with the three
+  highest-grossing films labeled, (b) log--log scale with a least-squares
+  line fitted on the logarithms.}
+  \label{fig:sc_budget}
+\end{figure*}
+ 
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.85\textwidth]{figures/fig_scatter_votecount_revenue.png}
+  \caption{Vote count versus revenue for films with positive values
+  ($n=3{,}374$): (a) linear scale, (b) log--log scale with a fitted line.
+  Vote count is only known after release.}
+  \label{fig:sc_votes}
+\end{figure*}
+ 
+\textit{Budget versus revenue.}
+Figure~\ref{fig:budgetrevenue} already showed the log-scale view of this
+relationship; Figure~\ref{fig:sc_budget} adds the linear view and a fitted
+line. Figure~\ref{fig:sc_budget}(a) shows that most films lie in a dense cluster
+near the origin, while a few very large productions stretch the axes; the
+linear plot is therefore hard to read and the relationship looks
+heteroscedastic (the spread of revenue grows with budget). On the
+logarithmic scales of Figure~\ref{fig:sc_budget}(b) the pattern is much
+clearer: there is a positive, roughly linear trend, with a log--log
+Pearson correlation of 0.657 and a fitted slope of 0.82 ($R^2 = 0.43$).
+Taken at face value, a tenfold increase in budget is associated with a
+$10^{0.82}\approx 6.6$-fold increase in revenue, i.e., revenue grows
+slightly less than proportionally with budget; part of this flattening may
+come from excluding the zero-valued records. The Pearson correlation on
+the original scale is 0.705 and the Spearman rank correlation is 0.679,
+which indicates that the relationship is monotonic but far from perfect.
+The wide vertical scatter around the trend line shows that budget alone
+does not determine revenue: 24.4\% of the films earn less than their
+budget, whereas 8.4\% earn more than ten times their budget, and the
+median revenue-to-budget ratio is 2.30. High-budget films carry a larger
+risk of loss but also include the biggest successes, such as the
+highest-grossing films labeled in Figure~\ref{fig:sc_budget}(a). Note also
+the small group of points with very small budgets or revenues (below
+10,000 USD) in the lower left part of Figure~\ref{fig:sc_budget}(b); these
+may be recording errors and will be handled in the outlier-detection
+step.
+ 
+\textit{Vote count versus revenue.}
+Vote count and revenue are also strongly related (Figure~\ref{fig:sc_votes}).
+Among the 3,374 films with positive vote count and revenue, the Pearson
+correlation is 0.758 (0.756 when restricted to the 3,229 films that
+also have a positive budget, as in Section~III-D) and the Spearman correlation is 0.749, both higher
+than for budget. On the log--log scale, however, the correlation is 0.656
+with a slope of 0.96 and $R^2 = 0.43$, essentially the same as for budget
+(0.657). The higher raw correlation is therefore partly driven by a small
+number of blockbusters that have both extreme vote counts and extreme
+revenues. The slope close to one suggests that revenue grows roughly in
+proportion to the number of votes, which is expected because both
+quantities increase with the number of people who watch a film. However,
+the vote count is accumulated after release and is partly a consequence of
+the revenue. We therefore use this plot only to understand the data and
+will \emph{not} use vote count as a predictor in the pre-release revenue
+model, in order to avoid information leakage.
+ 
+\textit{Summary.}
+Both relationships are clearly positive but non-linear on the original
+scale and much more linear after a log transform. Budget is the most
+important legitimate pre-release numeric predictor identified so far,
+but it explains only about 43\% of the variance of log revenue
+($R^2 = 0.43$) on its own. This suggests that other attributes (genre,
+release month, language, production company) are needed, which motivates
+the models planned in the following milestones.
 \section*{AI Use Disclosure}
 Generative AI tools were used as supporting tools for language editing,
 LaTeX formatting, and reviewing parts of the report. The group members

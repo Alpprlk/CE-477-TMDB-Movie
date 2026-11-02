@@ -433,6 +433,114 @@ but it explains only about 43\% of the variance of log revenue
 ($R^2 = 0.43$) on its own. This suggests that other attributes (genre,
 release month, language, production company) are needed, which motivates
 the models planned in the following milestones.
+\section{Preprocessing}
+
+\subsection{Missing-Value Handling}
+
+The initial data-quality analysis showed that \texttt{runtime} contains
+2 explicitly missing values and 35 records with a runtime of zero.
+Since a zero-minute runtime is not considered a meaningful movie
+duration, these zero values were treated as missing values. Therefore,
+37 runtime values required treatment.
+
+The median was preferred for imputation because it is less sensitive
+to unusually short or long films than the mean. The median calculated
+from valid positive runtime values was 104 minutes. The 37 missing or
+invalid runtime values were therefore replaced with 104 minutes.
+After imputation, the cleaned runtime attribute contained no missing
+values.
+
+Budget and revenue were handled differently. The dataset contains
+1,037 zero budget values and 1,427 zero revenue values. Since these
+values may represent missing or unreported financial information, they
+were marked as unknown in the cleaned versions of the attributes.
+They were not replaced with the mean or median because doing so would
+introduce artificial financial values into the dataset.
+
+
+\subsection{Outlier Detection}
+
+Outliers in budget, revenue, and runtime were detected using the
+1.5$\times$IQR rule. Before calculating the quartiles, zero budget and
+revenue values were excluded because they had already been treated as
+potentially missing or unreported. Missing and zero runtime values were
+also excluded before runtime outlier detection.
+
+For each attribute, the first quartile $Q_1$, third quartile $Q_3$, and
+interquartile range were calculated as
+
+\[
+IQR = Q_3 - Q_1.
+\]
+
+An observation was flagged as a suspected outlier if it was below
+
+\[
+Q_1 - 1.5 \times IQR
+\]
+
+or above
+
+\[
+Q_3 + 1.5 \times IQR.
+\]
+
+Table~\ref{tab:cleaning_outliers} summarizes the resulting limits and
+outlier counts.
+
+\begin{table}[t]
+\caption{IQR-Based Outlier Detection on Cleaned Numeric Attributes}
+\label{tab:cleaning_outliers}
+\centering
+\footnotesize
+\begin{tabular}{lrrr}
+\toprule
+Attribute & Lower Bound & Upper Bound & Outliers \\
+\midrule
+Budget & -55.0M & 113.0M & 245 \\
+Revenue & -171.87M & 327.38M & 299 \\
+Runtime & 58 min & 154 min & 147 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The negative lower bounds for budget and revenue are mathematical
+results of the IQR calculation and do not indicate the presence of
+negative financial values. The relevant financial outliers are mainly
+values above the upper bounds.
+
+The detected outliers were flagged rather than automatically removed.
+Very high-budget or high-revenue films may represent genuine
+blockbusters, while unusually short or long films may also be valid
+observations. Automatically deleting all such observations could
+therefore remove meaningful information from the dataset.
+
+
+\subsection{Runtime Discretization}
+
+The cleaned runtime attribute was also discretized into three ordinal
+categories using equal-frequency binning. The categories were defined
+as \textit{Short}, \textit{Medium}, and \textit{Long}.
+
+The resulting bin boundaries were approximately 14, 97, 112, and
+338 minutes. The categories contained 1,646 short films, 1,601 medium
+films, and 1,556 long films. The counts are not exactly equal because
+multiple movies share the same runtime values around the quantile
+boundaries.
+
+Figure~\ref{fig:runtime_discretization} shows the resulting
+distribution. The similar bar heights indicate that the
+equal-frequency procedure produced three groups with approximately
+equal numbers of movies.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.92\columnwidth]{runtime_discretization.png}
+\caption{Distribution of movies after equal-frequency discretization
+of runtime into short, medium, and long categories.}
+\label{fig:runtime_discretization}
+\end{figure}
+
 \section*{AI Use Disclosure}
 Generative AI tools were used as supporting tools for language editing,
 LaTeX formatting, and reviewing parts of the report. The group members

@@ -541,7 +541,335 @@ equal numbers of movies.
 of runtime into short, medium, and long categories.}
 \label{fig:runtime_discretization}
 \end{figure}
+% ---------------------------------------------------------------------------
+% Part 4 (Preprocessing II). 
+\subsection{Correlation Analysis}
+Budget and revenue are left unknown rather than imputed in the cleaning steps above, so the
+remaining analyses use the 3,229 films with positive budget and revenue. Figure~\ref{fig:p4_corr}
+shows the Pearson correlation matrix of nine attributes available before release, three
+audience attributes that are only known after release, and the target $\log_{10}$ revenue.
+Budget, popularity and vote count enter on a $\log_{10}$ scale because of their skewness
+(see the numeric distributions above); the added attributes are counts taken from the JSON
+columns (numbers of genres, keywords, production companies, production countries, and cast members)
+and the release month.
 
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.78\textwidth]{fig4_corr.png}
+  \caption{Pearson correlation matrix for the 3,229 films with positive budget and revenue.
+  The first block contains the nine attributes available before release, the second block
+  the three post-release audience attributes, and the last row/column the target
+  $\log_{10}$ revenue.}
+  \label{fig:p4_corr}
+\end{figure*}
+
+Among the pre-release attributes, $\log_{10}$ budget has by far the strongest linear relation
+with $\log_{10}$ revenue ($r=0.66$, identical to the log--log value reported in the scatter plot
+section; on the raw scale the correlation is 0.705). Cast size ($r=0.28$), number of keywords (0.19)
+and runtime (0.19) are weaker, and release month (0.02) and number of production countries
+(0.03) show almost no linear relation. The post-release attributes are as strongly correlated with
+revenue as budget is (vote count 0.67, popularity 0.63), but this is exactly the leakage problem
+discussed earlier: these quantities grow with the size of the audience, which also produces the revenue.
+Popularity and vote count are also nearly redundant with each other ($r=0.92$). Among the nine
+pre-release attributes no pair exceeds $|r|=0.8$; the highest value is 0.46, between the
+numbers of production companies and production countries. Multicollinearity is therefore not a
+problem for the pre-release set. Pearson correlation only measures linear association, so
+attributes with a non-linear effect (such as the release month) can look unimportant here;
+this is why mutual information is used in the next step.
+
+\subsection{Attribute Selection}
+Attribute selection was done in three steps. First, a domain rule removed everything that is not
+known before release: \texttt{popularity}, \texttt{vote\_average} and \texttt{vote\_count}.
+Identifiers and free text (\texttt{id}, titles, \texttt{homepage}, \texttt{tagline},
+\texttt{overview}) were not used as features, and \texttt{status} was dropped because 3,228
+of the 3,229 films are ``Released''. Second, a redundancy filter was set to remove one attribute
+of every pair with $|r|>0.8$; no pair qualified (Figure~\ref{fig:p4_corr}). Third, the nine
+remaining attributes were ranked by their mutual information (MI) with $\log_{10}$ revenue,
+averaged over five random seeds (Figure~\ref{fig:p4_sel}). To decide which MI values mean
+anything, the target was shuffled ten times and the largest MI obtained from the shuffled
+target (0.037) was used as the noise level.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.92\columnwidth]{fig4_selection.png}
+  \caption{Mutual information between each attribute and $\log_{10}$ revenue. The dashed line is
+  the noise level obtained with a shuffled target. The three post-release attributes
+  (orange) are removed by the domain rule even though they rank high.}
+  \label{fig:p4_sel}
+\end{figure}
+
+Four pre-release attributes are above the noise level: budget (MI = 0.36), cast size (0.10), release
+month (0.08) and number of production companies (0.04). The release month is notable, since its
+Pearson correlation is only 0.02; the MI suggests a non-linear (probably seasonal) effect, although
+with 3,229 films this estimate is noisy. The other five attributes (runtime, release year, number of
+genres, keywords and production countries) are within the noise level individually.
+
+To check whether a strict filter is a good idea, we compared feature sets with a five-fold
+cross-validated $R^2$ for $\log_{10}$ revenue using ridge regression and a random forest
+(Table~\ref{tab:p4_sel}). Budget alone gives $R^2\approx0.41$--$0.42$. All nine pre-release attributes
+reach 0.47 (ridge) and 0.49 (random forest), whereas the strict MI filter with four attributes reaches only 0.45
+and 0.44. Adding the three post-release attributes raises $R^2$ to about 0.64, a jump of 0.15--0.17 that
+would make a pre-release model look much better than it really is. We therefore keep all nine pre-release attributes
+as the final feature set: MI looks at each attribute alone and misses their joint contribution, and the
+filter would cost 0.02--0.05 of $R^2$. The differences between the first three rows
+are of the same size as the fold-to-fold standard deviation (about 0.08), so they should be read as a tendency
+only. MI is used as a ranking, and embedded selection (e.g., L1 or forest importance) can be tried again
+when the models are built. One caveat is that the keyword count may include tags added by users after release.
+
+\begin{table}[t]
+\caption{5-Fold CV $R^2$ for $\log_{10}$ Revenue by Feature Set (mean $\pm$ std over folds)}
+\label{tab:p4_sel}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{lrcc}
+\toprule
+Feature set & \# & Ridge & Random forest \\
+\midrule
+Only $\log_{10}$ budget & 1 & 0.42 $\pm$ 0.09 & 0.41 $\pm$ 0.11 \\
+Strict MI filter & 4 & 0.45 $\pm$ 0.08 & 0.44 $\pm$ 0.08 \\
+\textbf{All pre-release (final)} & 9 & 0.47 $\pm$ 0.08 & 0.49 $\pm$ 0.09 \\
+Pre-release + post-release & 12 & 0.64 $\pm$ 0.06 & 0.63 $\pm$ 0.09 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Normalization and Standardization}
+Two rescalings were applied to the numeric attributes: min--max normalization,
+$x'=(x-x_{\min})/(x_{\max}-x_{\min})$, which maps values to $[0,1]$, and z-score standardization,
+$z=(x-\mu)/\sigma$, which gives mean 0 and standard deviation 1. Both are linear and do not change the
+shape of a distribution; only the $\log_{10}$ transform does. Table~\ref{tab:p4_skew} shows its effect
+on the skewness of the four skewed attributes, and Figure~\ref{fig:p4_scaling} compares the two
+rescalings on budget with and without the log transform.
+
+\begin{table}[t]
+\caption{Skewness Before and After the $\log_{10}$ Transform (3,229 films)}
+\label{tab:p4_skew}
+\centering
+\scriptsize
+\begin{tabular}{lrr}
+\toprule
+Attribute & Raw & $\log_{10}$ \\
+\midrule
+Budget & 2.09 & $-3.16$ \\
+Revenue & 3.82 & $-2.37$ \\
+Popularity & 9.26 & $-1.25$ \\
+Vote count & 3.21 & $-0.51$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.85\columnwidth]{fig4_scaling.png}
+  \caption{Budget after min--max normalization (top) and z-score standardization (bottom),
+  applied to the raw values (left) and to the $\log_{10}$ values (right). Dotted lines mark
+  $z=\pm3$.}
+  \label{fig:p4_scaling}
+\end{figure}
+
+On the raw scale (Figure~\ref{fig:p4_scaling}a), min--max normalization is dominated by a few very expensive
+films: 63.3\% of the films are squeezed below 0.1 and the median is 0.07, so almost all films are
+nearly indistinguishable for a distance-based method. After the log transform (Figure~\ref{fig:p4_scaling}b) the values
+are spread over the interval (median 0.86), but now the mass sits near 1 and a thin tail extends to the left.
+For z-scores, 76 films have $|z|>3$ on the raw scale (maximum 7.6) and 34 after the log transform.
+The log transform also changes the direction of the skew: the skewness of budget goes from 2.09 to $-3.16$
+(Table~\ref{tab:p4_skew}). This is not a failure of the transform; it comes from the suspiciously small
+values reported in the data-quality section, such as budgets of a few dollars, which become extreme on a
+log scale (minimum $z=-10.1$). When the 24 films with a budget or revenue below 10,000 USD are excluded as a
+sensitivity check, the skewness of $\log_{10}$ budget and revenue becomes $-1.15$ and $-1.14$ and the minimum
+$z$ is $-5.5$. The group should therefore decide whether these values are treated as unknown, as is done for
+zeros; we did not remove them here to stay consistent with the cleaning above.
+
+For the later models we use $\log_{10}$ followed by z-score standardization for methods that depend on variance
+or distance (ridge regression, PCA, k-NN, SMOTE). Min--max normalization is kept for methods that need a
+bounded input range, and tree-based models need no scaling. To avoid leaking test information, the scaler
+parameters must be computed on the training part only; all cross-validated experiments in this report fit the scaler
+inside each training fold. Only the PCA illustration below scales all films at once, which is acceptable
+because no target information is used there.
+
+\subsection{Encoding of Categorical Attributes}
+Table~\ref{tab:p4_enc} lists how the categorical attributes were encoded. Genres are multi-valued
+(2.65 per film on average), so each film receives a multi-hot vector with one 0/1 column for each of the
+19 genres that occur among the 3,229 films; a single film without a genre is the all-zero vector.
+The original language has 37 values in the full data set but is extremely concentrated: English accounts for
+3,102 of the 3,229 films (96.1\%), followed by French (25), Spanish (15), Japanese (13) and Chinese (13).
+Encoding every language would create many columns with only a handful of ones, which cannot be learned reliably,
+so the five most frequent languages were one-hot encoded and the rest (1.9\% of the films) were grouped as
+``other'', giving six columns. We keep all dummy columns for PCA and trees; for ridge or logistic
+regression one column of each group would be dropped to avoid the dummy-variable trap. The release month was left
+numeric (1--12). It is cyclic, so December and January are neighbors; encoding it with sine and cosine or as 12 dummy columns are alternatives
+to test during modeling. The final design matrix has $9+19+6=34$ columns.
+
+\begin{table}[t]
+\caption{Encoding of Categorical Attributes}
+\label{tab:p4_enc}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{p{0.34\columnwidth}p{0.44\columnwidth}r}
+\toprule
+Attribute & Encoding & Columns \\
+\midrule
+\texttt{genres} & multi-hot (one 0/1 column per genre) & 19 \\
+\texttt{original\_language} & one-hot, top 5 languages + ``other'' & 6 \\
+\texttt{release\_month} & kept numeric (cyclic; see text) & 1 \\
+Other numeric attributes & z-score ($\log_{10}$ first for budget) & 8 \\
+\midrule
+Total & & 34 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Principal Component Analysis}
+PCA was applied to the 34-column design matrix (z-scored numeric attributes plus the 0/1 dummy columns)
+of the 3,229 films. Figure~\ref{fig:p4_scree} shows the cumulative explained variance, and
+Figure~\ref{fig:p4_pca} shows the films in the space of the first two and three principal components, colored by
+$\log_{10}$ revenue. The target is used only for coloring and not for the projection.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.92\columnwidth]{fig4_pca_scree.png}
+  \caption{Cumulative explained variance of the principal components, for the nine numeric
+  attributes alone and for the full 34-column matrix with one-hot columns. The dotted line marks 90\%.}
+  \label{fig:p4_scree}
+\end{figure}
+
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.85\textwidth]{fig4_pca_scatter.png}
+  \caption{Films projected on (a) the first two and (b) the first three principal components of the
+  34-column matrix. Color shows $\log_{10}$ revenue; the target was not used to compute the projection.}
+  \label{fig:p4_pca}
+\end{figure*}
+
+The variance is spread over many components (Figure~\ref{fig:p4_scree}). PC1, PC2 and PC3 explain 17.7\%, 13.5\% and
+11.0\% of the variance, so the 2D plot of Figure~\ref{fig:p4_pca}a retains only 31.2\% and the 3D plot 42.2\%; 9 components are
+needed for 80\% and 12 for 90\%. For the nine numeric attributes alone the first two components explain 37.6\%, and 6 and 8 components
+are needed for 80\% and 90\%. This slow growth agrees with the correlation analysis: the attributes are only weakly correlated with
+each other, so there is little redundancy for PCA to remove, and the dummy columns add more nearly independent directions.
+PCA is therefore of limited use for compression in this data set, and its main value here is visualization.
+
+The components can be interpreted through their loadings. PC1 is a production-scale axis: the number of production companies (0.47),
+$\log_{10}$ budget (0.46), the number of production countries (0.40) and cast size (0.31) all load positively. PC2 contrasts runtime
+(0.53) and cast size with release year ($-0.51$), i.e., older long films against newer shorter ones. PC3 is dominated by the number of
+genres (0.64). The color gradient in Figure~\ref{fig:p4_pca}a follows PC1: films with high revenue lie to the right and the lowest-revenue films to the
+left, and the correlation between PC1 and $\log_{10}$ revenue is 0.46 (0.10 for PC2 and 0.28 for PC3). However, the revenue levels overlap strongly and no
+separate clusters appear in two or three dimensions (Figure~\ref{fig:p4_pca}b), so metadata alone cannot separate high- and low-revenue films
+cleanly, which agrees with the cross-validated $R^2$ of about 0.5 in Table~\ref{tab:p4_sel}. The six isolated points at the far left of PC1 ($<-5$) all have a budget below 10,000 USD,
+which shows that PCA, being variance-based, is sensitive to the suspicious values discussed above.
+
+\subsection{Data Augmentation}
+Augmentation is only useful if a class is rare. Revenue is a numeric target, so to demonstrate augmentation we defined a
+binary label ``blockbuster'' (revenue of at least 300 million USD, not adjusted for inflation). It applies to 345 of the 3,229 films (10.7\%), so
+the classes are imbalanced. We oversampled the minority class with SMOTE \cite{chawla2002smote}, which creates synthetic films by interpolating between a blockbuster and
+one of its five nearest blockbuster neighbors, using the nine numeric attributes. SMOTE was compared with a baseline and with class weighting
+(a way to compensate for imbalance without synthetic data) for logistic regression and a random forest, using 5-fold stratified cross-validation repeated three times. To avoid leakage, SMOTE was applied
+inside each training fold only, so no synthetic sample ever reaches a test fold. Figure~\ref{fig:p4_smote} illustrates the procedure on the whole data set and Table~\ref{tab:p4_aug}
+gives the cross-validated results.
+
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.85\textwidth]{fig4_smote.png}
+  \caption{SMOTE illustration on the numeric attributes: (a) class counts before and after oversampling the
+  blockbuster class (2,539 synthetic films added); (b) real and synthetic blockbusters in the plane of the two most
+  informative attributes, $\log_{10}$ budget and cast size.}
+  \label{fig:p4_smote}
+\end{figure*}
+
+\begin{table}[t]
+\caption{Blockbuster Classification, 5-Fold CV $\times$ 3 (minority-class precision, recall and F1)}
+\label{tab:p4_aug}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{llrrrr}
+\toprule
+Model & Strategy & Prec. & Recall & F1 & AUC \\
+\midrule
+Logistic reg. & Baseline & 0.76 & 0.40 & 0.52 & 0.905 \\
+ & Class weights & 0.35 & 0.85 & 0.49 & 0.907 \\
+ & SMOTE & 0.35 & 0.84 & 0.49 & 0.907 \\
+\midrule
+Random forest & Baseline & 0.73 & 0.47 & 0.57 & 0.915 \\
+ & Class weights & 0.55 & 0.72 & 0.62 & 0.919 \\
+ & SMOTE & 0.56 & 0.70 & 0.62 & 0.918 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+SMOTE changes the behavior of both models in the same way (Table~\ref{tab:p4_aug}): recall of the blockbuster class rises (0.40 to 0.84 for logistic
+regression, 0.47 to 0.70 for the random forest) while precision falls (0.76 to 0.35 and 0.73 to 0.56). Whether this is an improvement depends on the goal.
+The F1 score drops slightly for logistic regression (0.52 to 0.49) and rises for the random forest (0.57 to 0.62), but the gain of about 0.05 is
+roughly one fold-to-fold standard deviation (0.04--0.05), so it is not conclusive. The ROC AUC does not change (0.905 to 0.907 and 0.915 to 0.918): the models do not rank films better,
+they only use a more liberal decision threshold. In fact, plain class weighting reaches the same results as SMOTE (random forest F1 0.62 for both),
+so the synthetic films bring no benefit over reweighting. This is understandable because SMOTE only interpolates between existing blockbusters
+(Figure~\ref{fig:p4_smote}b); the new points lie in the region the real blockbusters already occupy and add no new information. SMOTE also has limitations for this
+data: it creates non-integer values for counts and months, and it is not meaningful for one-hot columns, which is why only the numeric attributes
+were used (SMOTE-NC would be needed for the mixed matrix). Other common augmentation techniques, such as adding noise or text paraphrasing of the \texttt{overview} field,
+are not meaningful for these tabular metadata. We conclude that augmentation can be used to raise recall for rare, high-revenue films, but
+that threshold tuning or class weights should be tried first.
+
+\subsection{Imputation of Missing Budgets}
+The cleaning steps above left zero budgets as unknown, but the assignment also asks for imputation, so we tested it for
+the budget attribute. Revenue is the target and is never imputed. Of the 4,803 films, 1,037 have an unknown budget; for 890 of them the revenue
+is unknown too, which leaves 147 films with a known revenue but an unknown budget. Imputing their budgets would raise the number of usable films
+from 3,229 to 3,376 (+4.6\%). The imputation uses only attributes known before release (runtime, release year and month, the counts of genres, production
+companies, production countries and cast members, and the genre columns). Revenue is deliberately not used as an input, because that
+would move information about the target into a feature.
+
+To choose a method we ran a masking test: 20\% of the 3,731 known budgets of at least 10,000 USD were hidden at random, imputed, and compared
+with the true values, repeated ten times. Four methods were compared on $\log_{10}$ budget: the mean, the median, the median within the release decade, and
+a $k$-nearest-neighbor imputer ($k=5$) on the standardized inputs. Figure~\ref{fig:p4_imp}a shows the root mean squared error (RMSE).
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.95\columnwidth]{fig4_imputation.png}
+  \caption{(a) RMSE of $\log_{10}$ budget in the masking test for four imputation methods (mean $\pm$ std over ten repetitions). (b) Distribution of
+  the observed budgets and of the 147 budgets imputed with KNN.}
+  \label{fig:p4_imp}
+\end{figure}
+
+KNN is the best method: RMSE 0.51 against 0.63 for the mean, 0.64 for the median and 0.61 for the decade median (mean absolute error 0.38 against 0.48, 0.47 and 0.44).
+An error of 0.51 in $\log_{10}$ units still means a typical factor of about $10^{0.51}\approx3.3$ between the imputed and the true budget, so the
+improvement over the mean (about 18\%) is real but modest; the metadata describe the size of a production only roughly. Figure~\ref{fig:p4_imp}b compares the imputed budgets with the observed ones:
+the imputed median is 14.9M USD against 24.0M USD for the observed budgets (quartiles 6.4/14.9/25.1M against 8.8/24.0/50.0M). The masking test assumes that budgets are missing at random,
+and this result suggests they are not: the films with an unknown budget look like smaller productions in their other attributes. The true imputation error is therefore probably larger than in the
+test. For this reason the 3,229 complete films remain the main data for all analyses above, and the 147 imputed films are kept as an optional extension, to be checked in the modeling stage by comparing models trained with
+and without them.
+
+\subsection{Preprocessing Summary}
+Table~\ref{tab:p4_summary} summarizes the preprocessing pipeline of this report. The result is a design
+matrix of 3,229 films and 34 columns, with $\log_{10}$ revenue as the regression target and the blockbuster label as an
+optional classification target. Open decisions for the next milestones are (i) whether budgets and revenues below 10,000 USD are treated as unknown,
+(ii) whether the keyword count is kept, since it may be recorded after release, and
+(iii) which of the 34 columns are kept by the embedded selection of the final models. Films with an unknown revenue (1,427) are excluded because revenue is the target. Of the 1,574 films outside the matrix, the other 147 could be recovered by the budget imputation
+above, which we keep as an optional extension.
+
+\begin{table}[t]
+\caption{Summary of the Preprocessing Pipeline}
+\label{tab:p4_summary}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{p{0.34\columnwidth}p{0.58\columnwidth}}
+\toprule
+Step & Outcome \\
+\midrule
+Runtime imputation & 37 zero/missing values $\rightarrow$ median (104 min) \\
+Zero budget/revenue & marked unknown; 3,229 complete films kept \\
+Budget imputation & KNN (RMSE 0.51 in $\log_{10}$); 147 films recoverable \\
+IQR outliers & flagged, not removed \\
+Leakage removal & popularity, vote average, vote count removed \\
+Redundancy filter & no pair with $|r|>0.8$ \\
+MI ranking & budget, cast size, month, companies above noise; all 9 kept \\
+Transformations & $\log_{10}$, then z-score (min--max where bounded input is needed) \\
+Encoding & 19 genre + 6 language columns; 34 columns in total \\
+PCA & 3 PCs: 42.2\% variance; 12 PCs: 90\% \\
+Augmentation & SMOTE raises recall, not AUC; same as class weights \\
+\bottomrule
+\end{tabular}
+\end{table}
 \section*{AI Use Disclosure}
 Generative AI tools were used as supporting tools for language editing,
 LaTeX formatting, and reviewing parts of the report. The group members

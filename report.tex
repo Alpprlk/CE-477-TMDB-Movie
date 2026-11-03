@@ -54,7 +54,7 @@ Our project repository is available at \url{https://github.com/Alpprlk/CE-477-TM
 \end{abstract}
 
 \section{Introduction}
-As production of a film requires a large investment before release of a movie, outcomes of the project can be used by producers and investors to have a prediction of financial success of the movie prior to release. Also, makes it possible to make a prediction of audience reaction, therefore it has been studied as a decision-support problem for studios, distributors, and exhibitors in earlier studies. Besides revenue, audience ratings are an important indicator of how a film is received and are also useful in recommendation and audience-analysis settings.
+Making a film requires a large investment long before anyone knows how the audience will react, so a wrong estimate is costly for several groups. Producers and investors need an early idea of a film's financial success to decide which projects to fund and how large a budget to commit. Distributors and exhibitors use such estimates to plan release dates and the number of screens, and streaming platforms use them when they choose which titles to acquire. For this reason, predicting financial outcome and audience reaction before release has been studied as a decision-support problem in earlier work. Besides revenue, audience ratings show how a film is received and are also useful in recommendation and audience-analysis settings.
 
 We use the TMDB 5000 Movie Data Set, which contains metadata for 4,803 films obtained from The Movie Database (TMDb) and distributed on Kaggle.
 
@@ -65,12 +65,18 @@ During the term, we plan to investigate the following questions:
     \item Which genres and keywords frequently occur together? We plan to study this with association mining.
     \item Do films form natural groups according to variables such as budget, runtime, genre, and, for descriptive clustering, popularity?
 \end{enumerate}
-
+From these questions we derive four hypotheses, which are examined in the remainder of this report:
+\begin{enumerate}[label=\textbf{H\arabic*.},leftmargin=*,nosep]
+   \item Among the attributes available before release, budget is the strongest single explanatory variable for revenue.
+    \item Budget, revenue, popularity, and vote count are strongly right-skewed, and most of their outliers are genuine blockbusters rather than recording errors.
+   \item Audience variables such as vote count and popularity correlate with revenue about as strongly as budget does, but they are not available before release and must be excluded to avoid information leakage.
+   \item The data set is biased toward English-language films and toward recent releases, so a model trained on it mainly reflects recent English-language cinema.
+\end{enumerate}
 We will distinguish predictive features from descriptive variables. In particular, \texttt{vote\_average} and \texttt{vote\_count} are only observed after audience voting has occurred, while the \texttt{popularity} value in this static data set is a time-dependent snapshot. Using these variables as if they were available before release would make a pre-release revenue model unrealistically optimistic.
 
-The rest of this report is organized as follows. Section II reviews related work. Section III describes the data set, its metadata, statistics, visualizations, and data-quality issues.
+The rest of this report is organized as follows. Section~\ref{sec:related} reviews related work. Section~\ref{sec:data} describes the data set, its metadata, statistics, categorical and temporal attributes, data-quality issues, numeric distributions, and scatter plots. Section~\ref{sec:prep} describes the preprocessing steps: missing-value handling, outlier detection, discretization, correlation analysis, attribute selection, scaling, encoding, principal component analysis, data augmentation, and imputation.
 
-\section{Background and Related Work}
+\section{Background and Related Work}\label{sec:related}
 
 \subsection{Box-Office Prediction}
 
@@ -209,15 +215,81 @@ Vote count & 977.29 & 471.00 & 1414.31 & 0 & 13752 \\
 \vspace{1mm}
 \parbox{0.98\columnwidth}{\scriptsize \textit{Note:} Runtime statistics in the all-records section are based on 4,801 non-missing observations; all other full-data numeric statistics use 4,803 records.}
 \end{table}
+\subsection{Categorical Attributes}
+\label{sec:categorical}
+For nominal attributes the mean and the median are not meaningful, so the mode is the appropriate central value. Table~\ref{tab:mode} gives the most frequent value of \texttt{original\_language}, \texttt{status}, and \texttt{genres} together with its count. Genres are multi-valued, so the count for genres is the number of films that include the genre.
+
+\begin{table}[t]
+\caption{Most Frequent Value (Mode) of the Categorical Attributes}
+\label{tab:mode}
+\centering
+\footnotesize
+\begin{tabular}{llrrr}
+\toprule
+Attribute & Mode & Count & \% of films & Distinct \\
+\midrule
+\texttt{original\_language} & en & 4,505 & 93.80 & 37 \\
+\texttt{status} & Released & 4,795 & 99.83 & 3 \\
+\texttt{genres} & Drama & 2,297 & 47.82 & 20 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Figure~\ref{fig:genres} shows the ten most frequent genres. Drama is the most frequent genre (2,297 films), followed by Comedy (1,722), Thriller (1,274), Action (1,154), and Romance (894). The remaining genres in the top ten, from Adventure to Family, each occur in roughly 500 to 800 films. Because a film can have several genres, the bars add up to more than 4,803, and Drama alone appears in almost half of the films. A few genres therefore cover most films, which matters later when the genres are encoded as multi-hot columns.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\columnwidth]{top_genres.png}
+\caption{Ten most frequent genres after parsing the JSON-like \texttt{genres} field.}
+\label{fig:genres}
+\end{figure}
+
+Figure~\ref{fig:lang} shows the most frequent original languages. English is far ahead with 4,505 films, whereas the second most frequent language, French, has only a small fraction of that number and all other languages are smaller still. The sample therefore mainly represents English-language cinema, which supports H4 for the language attribute and warns that results may not generalize to non-English films. The chart also shows that Chinese appears under two codes, \texttt{zh} and \texttt{cn}, so these codes would have to be merged if language is used as a feature.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\columnwidth]{top_languages.png}
+\caption{Ten most frequent original languages. English dominates.}
+\label{fig:lang}
+\end{figure}
+
++Figure~\ref{fig:status} shows the movie status on a logarithmic axis, which is needed to keep the two small categories visible. Almost all films are Released (4,795), and only 5 films are Rumored and 3 are Post Production. The attribute has almost no variation and therefore carries little information for prediction. The 8 unreleased films have no meaningful revenue or rating, so they are candidates for removal.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.8\columnwidth]{status.png}
+\caption{Movie status (logarithmic scale).}
+\label{fig:status}
+\end{figure}
+
+\subsection{Temporal Pattern}
+\label{sec:temporal}
+Figure~\ref{fig:year} is a line plot of the number of films per release year. Before about 1980 there are only a few films per year, then the count rises quickly during the 1990s and stays at about 200 films per year or more from the early 2000s, with the highest value in 2009 (247 films). The sharp drop at the end of the line is not a real decline: the data stop in February 2017, so 2017 is almost empty. The plot agrees with the 72.8\% share of films from 2000 or later and with H4, and it means that conclusions about older films rest on very few observations.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\columnwidth]{movies_per_year.png}
+\caption{Number of films per release year.}
+\label{fig:year}
+\end{figure}
+
+Figure~\ref{fig:decade} is a stacked bar chart of the five most frequent genres in each decade from the 1980s to the 2010s. The bar height is the number of genre assignments, so it mostly follows the number of films: it grows from about 400 in the 1980s to about 1,300 in the 1990s and about 3,300 in the 2000s. The 2010s bar is lower, but it covers only the years 2010 to early 2017. Drama is the largest segment in every decade, and the other four genres keep a similar order, so the genre mix is fairly stable over time while the volume changes strongly. The chart describes the composition of the available sample and does not show a causal trend.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\columnwidth]{genres_by_decade.png}
+\caption{Top genres across recent decades (stacked genre counts).}
+\label{fig:decade}
+\end{figure}
 
 \subsection{Data Quality}
 \label{sec:data_quality}
-Explicit missing values. The main explicit missing values occur in homepage (3,091 films; 64.36\%) and tagline (844 films; 17.57\%). In addition, overview is missing for 3 films, runtime for 2, and release date for 1. Figure~\ref{fig:missing} visualizes these counts. Some JSON-like attributes also contain empty lists: 412 films have no keywords, 351 have no production company, 174 have no production country, 86 have no spoken language, and 28 have no genre. In the credits file, 43 films have an empty cast and 28 have an empty crew.
+Explicit missing values. The main explicit missing values occur in homepage (3,091 films; 64.36\%) and tagline (844 films; 17.57\%). In addition, overview is missing for 3 films, runtime for 2, and release date for 1. Figure~\ref{fig:missing} visualizes these counts for the 20 original attributes; attributes without missing values are not shown. Some JSON-like attributes also contain empty lists: 412 films have no keywords, 351 have no production company, 174 have no production country, 86 have no spoken language, and 28 have no genre. In the credits file, 43 films have an empty cast and 28 have an empty crew.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.92\columnwidth]{missing_values.png}
-\caption{Explicit missing values in the movies CSV.}
+\caption{Original attributes of the movies CSV that contain missing values.}
 \label{fig:missing}
 \end{figure}
 
@@ -434,7 +506,7 @@ but it explains only about 43\% of the variance of log revenue
 ($R^2 = 0.43$) on its own. This suggests that other attributes (genre,
 release month, language, production company) are needed, which motivates
 the models planned in the following milestones.
-\section{Preprocessing}
+\section{Preprocessing}\label{sec:prep}
 
 \subsection{Missing-Value Handling}
 
@@ -542,7 +614,12 @@ of runtime into short, medium, and long categories.}
 \label{fig:runtime_discretization}
 \end{figure}
 % ---------------------------------------------------------------------------
-% Part 4 (Preprocessing II). 
+% Part 4 (Preprocessing II). Paste with \input{preprocessing_part4} inside the
+% "Preprocessing" section, right after the Runtime Discretization subsection.
+% Needs: graphicx, booktabs (already loaded). Figures are in figures/fig4_*.pdf.
+% All numbers come from preprocessing_part4.py (out/results.json).
+% ---------------------------------------------------------------------------
+
 \subsection{Correlation Analysis}
 Budget and revenue are left unknown rather than imputed in the cleaning steps above, so the
 remaining analyses use the 3,229 films with positive budget and revenue. Figure~\ref{fig:p4_corr}

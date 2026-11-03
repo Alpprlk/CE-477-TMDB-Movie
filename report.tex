@@ -211,6 +211,7 @@ Vote count & 977.29 & 471.00 & 1414.31 & 0 & 13752 \\
 \end{table}
 
 \subsection{Data Quality}
+\label{sec:data_quality}
 Explicit missing values. The main explicit missing values occur in homepage (3,091 films; 64.36\%) and tagline (844 films; 17.57\%). In addition, overview is missing for 3 films, runtime for 2, and release date for 1. Figure~\ref{fig:missing} visualizes these counts. Some JSON-like attributes also contain empty lists: 412 films have no keywords, 351 have no production company, 174 have no production country, 86 have no spoken language, and 28 have no genre. In the credits file, 43 films have an empty cast and 28 have an empty crew.
 
 \begin{figure}[t]
@@ -339,7 +340,7 @@ values near 0, and these are almost all films with zero or very few votes
 (63 films with average zero, 411 films with fewer than 10 votes). Once
 these films are removed, the skewness in the positive subset falls to
 $-0.61$ and the histogram in Figure~\ref{fig:hist} is approximately
-bell-shaped with a peak near \textcolor{red}{6.3}. Popularity (median 12.92, mean 21.49,
+bell-shaped with a peak near 6.3. Popularity (median 12.92, mean 21.49,
 maximum 875.58, skewness 9.72) and vote count (median 235, mean 690.22,
 maximum 13,752, skewness 3.82) are heavily right-skewed, with 5.7\% and
 10.5\% of films flagged as outliers. A few very popular films dominate the
@@ -412,7 +413,7 @@ step.
 Vote count and revenue are also strongly related (Figure~\ref{fig:sc_votes}).
 Among the 3,374 films with positive vote count and revenue, the Pearson
 correlation is 0.758 (0.756 when restricted to the 3,229 films that
-also have a positive budget, as in Section~III-D) and the Spearman correlation is 0.749, both higher
+also have a positive budget, as in Section~\ref{sec:data_quality}) and the Spearman correlation is 0.749, both higher
 than for budget. On the log--log scale, however, the correlation is 0.656
 with a slope of 0.96 and $R^2 = 0.43$, essentially the same as for budget
 (0.657). The higher raw correlation is therefore partly driven by a small

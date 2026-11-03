@@ -1,10 +1,4 @@
-"""
-CE 477 - Assignment 1 - Part 4: correlation, attribute selection, scaling,
-one-hot encoding, PCA, SMOTE and budget imputation on the TMDB 5000 data.
 
-Run:  python preprocessing_part4.py <folder with the two csv files> <output folder>
-Output: <output folder>/figures/*.pdf and <output folder>/results.json
-"""
 import sys, json, warnings
 from pathlib import Path
 

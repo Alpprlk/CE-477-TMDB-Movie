@@ -323,14 +323,6 @@ Condition & Films \\
 
 Attributes unsuitable for pre-release prediction. Within the 3,229 films with positive budget and revenue, revenue has a Pearson correlation of 0.756 with vote count, 0.705 with budget, and 0.602 with popularity. The large correlations with audience-response variables may improve apparent predictive accuracy, but they do not represent information that can safely be assumed available before release. Therefore, for pre-release revenue prediction we plan to exclude vote average, vote count, and the snapshot-based popularity feature. For pre-release rating prediction, vote count and popularity will likewise be excluded.
 
-Figure~\ref{fig:budgetrevenue} illustrates the relationship between positive budget and revenue values on logarithmic scales. The wide spread around the overall upward trend suggests that budget alone is not sufficient to explain revenue.
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=0.92\columnwidth]{budget_revenue.png}
-\caption{Budget versus revenue for films with positive financial values. Logarithmic axes are used because both variables are strongly right-skewed.}
-\label{fig:budgetrevenue}
-\end{figure}
 
 Bias and limitations. English is the original language of 93.80\% of the films, so the data set mainly represents English-language cinema. The data end in February 2017. Monetary values are not adjusted for inflation, so budgets and revenues from different decades are not directly comparable. In addition, audience ratings are based on widely varying numbers of votes, from zero to 13,752, which means that the reliability of vote average is not uniform across films.
 \subsection{Numeric Distributions}

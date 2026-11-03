@@ -1,4 +1,9 @@
-
+"""
+CE 477 - Assignment 1 - Person 1: Dataset & Basic EDA
+Run:  python person1_eda.py
+Needs tmdb_5000_movies.csv and tmdb_5000_credits.csv in the same folder.
+Outputs: figures/*.png and tables/*.tex (+ printed summary)
+"""
 import ast
 import os
 from collections import Counter
@@ -17,12 +22,14 @@ print("movies:", movies.shape, "| credits:", credits.shape)
 print("id/movie_id match:", set(movies["id"]) == set(credits["movie_id"]))
 print(movies.dtypes)
 
+# missing degerleri orijinal 20 sutun uzerinden hesapla (turetilmis sutunlar eklenmeden once)
+miss = movies.isna().sum()
+
 movies["release_date"] = pd.to_datetime(movies["release_date"], errors="coerce")
 movies["release_year"] = movies["release_date"].dt.year
 movies["release_month"] = movies["release_date"].dt.month
 print("release range:", movies["release_date"].min().date(), "->",
       movies["release_date"].max().date())
-
 
 attr_types = pd.DataFrame({
     "Attribute": ["budget", "revenue", "runtime", "vote_count",
@@ -36,21 +43,21 @@ attr_types = pd.DataFrame({
                     "Interval / time (derived)", "Nominal", "Nominal",
                     "Multi-label JSON-like", "Free text / identifier"],
 })
-attr_types.to_latex("tables/attr_types.tex", index=False)
+attr_types.to_csv("tables/attr_types.csv", index=False)
 
-miss = movies.isna().sum()
 miss_pct = (miss / len(movies) * 100).round(2)
 miss_df = pd.DataFrame({"Attribute": miss.index, "Missing": miss.values,
                         "Percent": miss_pct.values}).sort_values(
     "Missing", ascending=False)
+miss_df = miss_df[miss_df["Missing"] > 0]
 print(miss_df.to_string(index=False))
-miss_df.to_latex("tables/missing.tex", index=False, float_format="%.2f")
+miss_df.to_csv("tables/missing.csv", index=False)
 
 plt.figure(figsize=(6, 5))
-m = miss.sort_values()
+m = miss[miss > 0].sort_values()
 plt.barh(m.index, m.values)
 plt.xlabel("Missing values")
-plt.title("Missing Values by Attribute")
+plt.title("Attributes with Missing Values")
 plt.tight_layout()
 plt.savefig("figures/missing_values.png", dpi=200)
 plt.close()
@@ -72,6 +79,20 @@ for col in ["original_language", "status"]:
     print(f"\n{col}: mode={vc.index[0]} count={vc.iloc[0]} "
           f"({vc.iloc[0] / len(movies) * 100:.2f}%), distinct={len(vc)}")
     print(vc.head(10))
+
+# mode / count tablosu (original_language, status, genres)
+gc = Counter(g for lst in movies["genres_list"] for g in lst)
+rows = []
+for col in ["original_language", "status"]:
+    vc = movies[col].value_counts()
+    rows.append((col, vc.index[0], vc.iloc[0],
+                 round(vc.iloc[0] / len(movies) * 100, 2), len(vc)))
+g, c = gc.most_common(1)[0]
+rows.append(("genres", g, c, round(c / len(movies) * 100, 2), len(gc)))
+mode_df = pd.DataFrame(rows, columns=["Attribute", "Mode", "Count", "Percent", "Distinct"])
+print("\nMODE TABLE")
+print(mode_df.to_string(index=False))
+mode_df.to_csv("tables/mode_table.csv", index=False)
 
 genre_counts = Counter(g for lst in movies["genres_list"] for g in lst)
 print("\nTop genres:", genre_counts.most_common(10))

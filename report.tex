@@ -99,7 +99,7 @@ Percevali and Manzato \cite{percevali2013} evaluated different types of movie me
 Previous studies on movie-performance modeling have typically involved production and descriptive metadata, and both linear and ensemble models have appeared in the literature. This project will begin with interpretable baseline models and compare them with stronger ensemble methods. It will also explicitly differentiate between variables that can be used for pre-release prediction and variables that characterize post-release audience response. In addition, suspicious zero financial values will be treated as data-quality issues rather than being assumed to be valid real values.
 
 
-\section{Data Set Description}
+\section{Data Set Description}\label{sec:data}
 \subsection{Source and Metadata}
 The TMDB 5000 Movie Data Set is available on Kaggle and contains
 movie metadata from The Movie Database (TMDb) \cite{tmdb,kaggle}.
@@ -253,7 +253,7 @@ Figure~\ref{fig:lang} shows the most frequent original languages. English is far
 \label{fig:lang}
 \end{figure}
 
-+Figure~\ref{fig:status} shows the movie status on a logarithmic axis, which is needed to keep the two small categories visible. Almost all films are Released (4,795), and only 5 films are Rumored and 3 are Post Production. The attribute has almost no variation and therefore carries little information for prediction. The 8 unreleased films have no meaningful revenue or rating, so they are candidates for removal.
+Figure~\ref{fig:status} shows the movie status on a logarithmic axis, which is needed to keep the two small categories visible. Almost all films are Released (4,795), and only 5 films are Rumored and 3 are Post Production. The attribute has almost no variation and therefore carries little information for prediction. The 8 unreleased films have no meaningful revenue or rating, so they are candidates for removal.
 
 \begin{figure}[t]
 \centering
@@ -447,9 +447,7 @@ revenue, popularity and vote count, and (iii) prefer robust statistics
 \end{figure*}
  
 \textit{Budget versus revenue.}
-Figure~\ref{fig:budgetrevenue} already showed the log-scale view of this
-relationship; Figure~\ref{fig:sc_budget} adds the linear view and a fitted
-line. Figure~\ref{fig:sc_budget}(a) shows that most films lie in a dense cluster
+Figure~\ref{fig:sc_budget} shows the relationship between budget and revenue on both linear and logarithmic scales, together with a fitted line. Figure~\ref{fig:sc_budget}(a) shows that most films lie in a dense cluster
 near the origin, while a few very large productions stretch the axes; the
 linear plot is therefore hard to read and the relationship looks
 heteroscedastic (the spread of revenue grows with budget). On the

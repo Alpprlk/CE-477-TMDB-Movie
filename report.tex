@@ -61,7 +61,7 @@ We use the TMDB 5000 Movie Data Set, which contains metadata for 4,803 films obt
 During the term, we plan to investigate the following questions:
 \begin{enumerate}[leftmargin=*,nosep]
     \item Which attributes that are available before release, such as budget, runtime, genres, language, and release month, can predict movie revenue? This is a regression problem with \texttt{revenue} as the target.
-    \item Can films be classified as highly rated or not from metadata that does not directly encode post-release audience reaction? This is a classification problem based on \texttt{vote\_average}.
+    \item Can films be classified into Low, Medium, and High rating groups based on \texttt{vote\_average} using metadata that does not directly encode post-release audience reaction?
     \item Which genres and keywords frequently occur together? We plan to study this with association mining.
     \item Do films form natural groups according to variables such as budget, runtime, genre, and, for descriptive clustering, popularity?
 \end{enumerate}
@@ -74,7 +74,7 @@ From these questions we derive four hypotheses, which are examined in the remain
 \end{enumerate}
 We will distinguish predictive features from descriptive variables. In particular, \texttt{vote\_average} and \texttt{vote\_count} are only observed after audience voting has occurred, while the \texttt{popularity} value in this static data set is a time-dependent snapshot. Using these variables as if they were available before release would make a pre-release revenue model unrealistically optimistic.
 
-The rest of this report is organized as follows. Section~\ref{sec:related} reviews related work. Section~\ref{sec:data} describes the data set, its metadata, statistics, categorical and temporal attributes, data-quality issues, numeric distributions, and scatter plots. Section~\ref{sec:prep} describes the preprocessing steps: missing-value handling, outlier detection, discretization, correlation analysis, attribute selection, scaling, encoding, principal component analysis, data augmentation, and imputation.
+The rest of this report is organized as follows. Section~\ref{sec:related} reviews related work. Section~\ref{sec:data} describes the data set, its metadata, statistics, categorical and temporal attributes, data-quality issues, numeric distributions, and scatter plots. Section~\ref{sec:prep} describes the preprocessing steps: missing-value handling, outlier detection, discretization, correlation analysis, attribute selection, scaling, encoding, principal component analysis, data augmentation, and imputation. Section~\ref{sec:classification} presents the classification experiments and results.
 
 \section{Background and Related Work}\label{sec:related}
 
@@ -904,8 +904,7 @@ and without them.
 
 \subsection{Preprocessing Summary}
 Table~\ref{tab:p4_summary} summarizes the preprocessing pipeline of this report. The result is a design
-matrix of 3,229 films and 34 columns, with $\log_{10}$ revenue as the regression target and the blockbuster label as an
-optional classification target. Open decisions for the next milestones are (i) whether budgets and revenues below 10,000 USD are treated as unknown,
+matrix of 3,229 films and 34 columns, with $\log_{10}$ revenue as the regression target. The blockbuster label was used only for the SMOTE augmentation demonstration. Assignment 2 classification uses discretized \texttt{vote\_average} (Section~\ref{sec:classification}). Open decisions for the next milestones are (i) whether budgets and revenues below 10,000 USD are treated as unknown,
 (ii) whether the keyword count is kept, since it may be recorded after release, and
 (iii) which of the 34 columns are kept by the embedded selection of the final models. Films with an unknown revenue (1,427) are excluded because revenue is the target. Of the 1,574 films outside the matrix, the other 147 could be recovered by the budget imputation
 above, which we keep as an optional extension.
@@ -934,6 +933,89 @@ Augmentation & SMOTE raises recall, not AUC; same as class weights \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\section{Classification}\label{sec:classification}
+
+\subsection{Target and Experimental Setup}
+To reduce the influence of ratings based on very few votes, we kept movies with \texttt{vote\_count} $\geq 20$, leaving 4,138 movies. Vote count was used only for this filter. Quantile-based discretization of \texttt{vote\_average} divided the filtered sample into three approximately equal groups. For rating $r$, the Low group ($1.9 \leq r \leq 5.9$) contains 1,412 movies (34.1\%), the Medium group ($5.9 < r \leq 6.7$) contains 1,514 (36.6\%), and the High group ($6.7 < r \leq 8.5$) contains 1,212 (29.3\%).
+
+Stratified splitting with \texttt{random\_state=42} preserved the class proportions across the training set (2,482 movies, 60\%), validation set (828 movies, 20\%), and test set (828 movies, 20\%).
+
+The 27 predictors were budget, runtime, cast size, crew size, release year, release month, an English-language indicator, and 20 one-hot genre columns. The feature matrix excluded \texttt{vote\_average}, \texttt{vote\_count}, \texttt{popularity}, and \texttt{revenue}. Zero budget and runtime values were treated as missing. We computed medians for budget, runtime, release year, and release month from the training set alone and used those medians for imputation in all three splits to avoid leakage from validation and test data.
+
+\subsection{Classification Algorithms}
+\begin{itemize}[leftmargin=*,nosep]
+  \item \textbf{Decision Tree.} The tree had a maximum depth of 6 and required at least 10 training samples per leaf.
+  \item \textbf{Random Forest.} The ensemble used 300 trees, each with a maximum depth of 12 and at least 3 training samples per leaf.
+  \item \textbf{Logistic Regression.} A \texttt{StandardScaler} standardized the inputs before fitting the classifier.
+  \item \textbf{K-Nearest Neighbors (KNN).} A \texttt{StandardScaler} standardized the inputs before classification with $k=15$ neighbors.
+\end{itemize}
+For Logistic Regression and KNN, the scaler was fitted on the training set and applied to validation and test inputs.
+
+\subsection{Visualization}
+Fig.~\ref{fig:classification_tree} shows the top of the fitted Decision Tree, whose first split is on runtime. Fig.~\ref{fig:classification_comparison} compares the models across the four test metrics. The test confusion matrices in Fig.~\ref{fig:classification_confusion} show actual classes by row and predicted classes by column.
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{classification_decision_tree.png}
+\caption{Fitted Decision Tree with a maximum training depth of 6. Only the first three levels are displayed for readability.}
+\label{fig:classification_tree}
+\end{figure*}
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=0.9\textwidth]{classification_model_comparison.png}
+\caption{Test-set accuracy and macro-averaged precision, recall, and F1-score for the four classifiers.}
+\label{fig:classification_comparison}
+\end{figure*}
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=0.43\textwidth]{classification_confusion_matrix_decision_tree.png}\qquad
+\includegraphics[width=0.43\textwidth]{classification_confusion_matrix_random_forest.png}\\[0.5ex]
+\includegraphics[width=0.43\textwidth]{classification_confusion_matrix_logistic_regression.png}\qquad
+\includegraphics[width=0.43\textwidth]{classification_confusion_matrix_knn.png}
+\caption{Test confusion matrices for Decision Tree and Random Forest (top row) and Logistic Regression and KNN (bottom row). Each matrix shows counts for the same 828 movies.}
+\label{fig:classification_confusion}
+\end{figure*}
+
+\subsection{Performance Comparison}
+Table~\ref{tab:classification_metrics} reports validation and test accuracy, precision, recall, and F1-score. Precision, recall, and F1-score are macro-averaged across Low, Medium, and High.
+
+\begin{table}[t]
+\caption{Classification Performance on Validation and Test Sets}
+\label{tab:classification_metrics}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Model & Accuracy & Precision & Recall & F1-score \\
+\midrule
+\multicolumn{5}{@{}l}{\emph{Validation set ($N=828$)}} \\
+Decision Tree & 0.5181 & 0.5261 & 0.5202 & 0.5217 \\
+Random Forest & 0.5725 & 0.5794 & 0.5743 & 0.5764 \\
+Logistic Regression & 0.5495 & 0.5629 & 0.5511 & 0.5537 \\
+KNN & 0.5133 & 0.5136 & 0.5159 & 0.5116 \\
+\midrule
+\multicolumn{5}{@{}l}{\emph{Test set ($N=828$)}} \\
+Decision Tree & 0.5290 & 0.5397 & 0.5296 & 0.5326 \\
+Random Forest & 0.5833 & 0.5965 & 0.5848 & 0.5889 \\
+Logistic Regression & 0.5628 & 0.5778 & 0.5626 & 0.5667 \\
+KNN & 0.5507 & 0.5548 & 0.5527 & 0.5504 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Discussion}
+Random Forest led on all four metrics on both splits, with test accuracy of 0.5833 and macro F1-score of 0.5889. Logistic Regression ranked second on the test set, with accuracy of 0.5628 and macro F1-score of 0.5667. The Decision Tree and KNN scored lower overall. Validation and test scores were close, with no obvious sign of severe overfitting in this split.
+
+Fig.~\ref{fig:classification_confusion} shows that errors between adjacent rating groups were more frequent than direct Low--High errors for all four models. For example, Random Forest assigned 78 High-rated movies to Medium and 23 to Low. The reasonably balanced classes make accuracy useful, and macro precision, recall, and F1-score give all three classes equal weight.
+
+Random Forest may benefit from its ability to capture nonlinear interactions among the available movie attributes. Even its scores were moderate, suggesting that the pre-release metadata used here explain only part of the variation in audience ratings.
+
+\clearpage
+\raggedbottom
 \section*{AI Use Disclosure}
 Generative AI tools were used as supporting tools for language editing,
 LaTeX formatting, and reviewing parts of the report. The group members

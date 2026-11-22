@@ -1,12 +1,19 @@
 import ast
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.transforms import Bbox
+from sklearn.metrics import (
+    ConfusionMatrixDisplay,
+    accuracy_score,
+    precision_recall_fscore_support,
+)
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.tree import DecisionTreeClassifier, plot_tree
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
@@ -62,15 +69,12 @@ df["release_year"] = df["release_date"].dt.year
 df["release_month"] = df["release_date"].dt.month
 df["is_english"] = (df["original_language"] == "en").astype(int)
 
-# Cleaning: zero budget/revenue/runtime really mean "missing" in this dataset.
+# Cleaning: zero budget/runtime really mean "missing" in this dataset.
 # Movies with very few votes have unreliable ratings, so we keep only those
 # with at least 20 votes.
 df = df[df["vote_count"] >= 20].copy()
-for col in ["budget", "revenue", "runtime"]:
+for col in ["budget", "runtime"]:
     df[col] = df[col].replace(0, np.nan)
-    df[col] = df[col].fillna(df[col].median())
-df["release_year"] = df["release_year"].fillna(df["release_year"].median())
-df["release_month"] = df["release_month"].fillna(df["release_month"].median())
 
 print("Rows after cleaning:", len(df))
 
@@ -117,10 +121,9 @@ print("\nResulting classes (actual values found in the data):")
 print(summary.to_string())
 print("=" * 60)
 
-# Features. vote_average is excluded because the target is derived from it.
+# Use movie attributes and genres as predictors for the rating class.
 feature_cols = (
-    ["budget", "revenue", "runtime", "popularity", "vote_count",
-     "cast_size", "crew_size", "release_year", "release_month", "is_english"]
+    ["budget", "runtime", "cast_size", "crew_size", "release_year", "release_month", "is_english"]
     + [f"genre_{g}" for g in top_genres]
 )
 X = df[feature_cols]
@@ -138,6 +141,13 @@ X_temp, X_test, y_temp, y_test = train_test_split(
 X_train, X_val, y_train, y_val = train_test_split(
     X_temp, y_temp, test_size=0.25, stratify=y_temp, random_state=RANDOM_STATE
 )
+
+# Fill missing values in each split using medians from the training data.
+impute_cols = ["budget", "runtime", "release_year", "release_month"]
+train_medians = X_train[impute_cols].median()
+X_train = X_train.fillna(train_medians)
+X_val = X_val.fillna(train_medians)
+X_test = X_test.fillna(train_medians)
 
 print(f"\nTrain: {len(X_train)} ({len(X_train)/len(X):.0%})")
 print(f"Validation: {len(X_val)} ({len(X_val)/len(X):.0%})")
@@ -179,3 +189,87 @@ knn = Pipeline([
 knn.fit(X_train, y_train)
 
 print("\nAll 4 models trained: Decision Tree, Random Forest, Logistic Regression, KNN")
+
+
+# ======================================================================
+# TASK 4: Model Visualization
+# ======================================================================
+plt.switch_backend("Agg")
+figures_dir = BASE_DIR / "figures"
+figures_dir.mkdir(exist_ok=True)
+
+# The root is depth 0, so depth 2 shows the first three levels.
+fig, ax = plt.subplots(figsize=(18, 8), layout="constrained")
+annotations = plot_tree(
+    dt, max_depth=2, feature_names=feature_cols,
+    class_names=dt.classes_.tolist(), filled=True, rounded=True, ax=ax,
+)
+title = ax.set_title("Decision Tree (First Three Levels)")
+
+# Remove the placeholder boxes for deeper branches and crop to the visible tree.
+for annotation in annotations:
+    if annotation.get_text().strip() == "(...)":
+        annotation.remove()
+fig.canvas.draw()
+tree_bounds = Bbox.union([artist.get_window_extent() for artist in [title, *ax.texts]])
+tree_bounds = tree_bounds.transformed(fig.dpi_scale_trans.inverted()).padded(0.15)
+fig.savefig(figures_dir / "classification_decision_tree.png", dpi=180, bbox_inches=tree_bounds)
+plt.close(fig)
+
+
+# ======================================================================
+# TASK 5: Classification Performance Comparison
+# ======================================================================
+models = {
+    "Decision Tree": dt,
+    "Random Forest": rf,
+    "Logistic Regression": logreg,
+    "KNN": knn,
+}
+
+for split_name, features, actual in [("Validation", X_val, y_val), ("Test", X_test, y_test)]:
+    rows = []
+    for model_name, model in models.items():
+        predicted = model.predict(features)
+        precision, recall, f1, _ = precision_recall_fscore_support(
+            actual, predicted, labels=class_labels, average="macro", zero_division=0
+        )
+        rows.append({
+            "Model": model_name,
+            "Accuracy": accuracy_score(actual, predicted),
+            "Macro Precision": precision,
+            "Macro Recall": recall,
+            "Macro F1-score": f1,
+        })
+
+        if split_name == "Test":
+            fig, ax = plt.subplots(figsize=(5.5, 4.5), layout="constrained")
+            ConfusionMatrixDisplay.from_predictions(
+                actual, predicted, labels=class_labels, cmap="Blues", values_format="d", ax=ax
+            )
+            ax.set_title(f"{model_name} Test Confusion Matrix")
+            filename = f"classification_confusion_matrix_{model_name.lower().replace(' ', '_')}.png"
+            fig.savefig(figures_dir / filename, dpi=180)
+            plt.close(fig)
+
+    results = pd.DataFrame(rows).set_index("Model")
+    print("\n" + "=" * 76)
+    print(f"{split_name.upper()} SET PERFORMANCE")
+    print("=" * 76)
+    print(results.to_string(float_format="{:.4f}".format))
+    results.to_csv(BASE_DIR / f"classification_{split_name.lower()}_results.csv")
+
+    if split_name == "Test":
+        test_results = results
+
+# Group the test scores by metric so the four models can be compared directly.
+fig, ax = plt.subplots(figsize=(12, 6), layout="constrained")
+test_results.T.plot.bar(ax=ax, rot=0, width=0.8)
+for bars in ax.containers:
+    ax.bar_label(bars, fmt="%.3f", padding=3, fontsize=8)
+ax.set_title("Test Set Performance by Model")
+ax.set_ylabel("Score")
+ax.set_ylim(0, 1)
+ax.legend(title="Model", loc="upper center", ncol=4)
+fig.savefig(figures_dir / "classification_model_comparison.png", dpi=180)
+plt.close(fig)

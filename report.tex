@@ -74,7 +74,7 @@ From these questions we derive four hypotheses, which are examined in the remain
 \end{enumerate}
 We will distinguish predictive features from descriptive variables. In particular, \texttt{vote\_average} and \texttt{vote\_count} are only observed after audience voting has occurred, while the \texttt{popularity} value in this static data set is a time-dependent snapshot. Using these variables as if they were available before release would make a pre-release revenue model unrealistically optimistic.
 
-The rest of this report is organized as follows. Section~\ref{sec:related} reviews related work. Section~\ref{sec:data} describes the data set, its metadata, statistics, categorical and temporal attributes, data-quality issues, numeric distributions, and scatter plots. Section~\ref{sec:prep} describes the preprocessing steps: missing-value handling, outlier detection, discretization, correlation analysis, attribute selection, scaling, encoding, principal component analysis, data augmentation, and imputation. Section~\ref{sec:classification} presents the classification experiments and results.
+The rest of this report is organized as follows. Section~\ref{sec:related} reviews related work. Section~\ref{sec:data} describes the data set, its metadata, statistics, categorical and temporal attributes, data-quality issues, numeric distributions, and scatter plots. Section~\ref{sec:prep} describes the preprocessing steps: missing-value handling, outlier detection, discretization, correlation analysis, attribute selection, scaling, encoding, principal component analysis, data augmentation, and imputation. Section~\ref{sec:classification} presents the classification experiments and results ,and Section~\ref{sec:regression} presents the regression experiments.
 
 \section{Background and Related Work}\label{sec:related}
 
@@ -1013,6 +1013,27 @@ Random Forest led on all four metrics on both splits, with test accuracy of 0.58
 Fig.~\ref{fig:classification_confusion} shows that errors between adjacent rating groups were more frequent than direct Low--High errors for all four models. For example, Random Forest assigned 78 High-rated movies to Medium and 23 to Low. The reasonably balanced classes make accuracy useful, and macro precision, recall, and F1-score give all three classes equal weight.
 
 Random Forest may benefit from its ability to capture nonlinear interactions among the available movie attributes. Even its scores were moderate, suggesting that the pre-release metadata used here explain only part of the variation in audience ratings.
+
+\section{Regression}\label{sec:regression}
+
+\subsection{Targets and Experimental Setup}
+We trained regression models for two different numeric targets: the revenue of a film and its audience rating.
+\begin{itemize}[leftmargin=*,nosep]
+  \item \textbf{Target 1: $\log_{10}$ revenue.} Revenue is strongly right-skewed (Section~\ref{sec:data}), so we modeled its $\log_{10}$ value. Only the 3,229 movies with a positive budget and a positive revenue were used, because a zero in either column is treated as a missing value (Section~\ref{sec:data_quality}).
+  \item \textbf{Target 2: \texttt{vote\_average}.} As in the classification experiments, we kept the 4,138 movies with \texttt{vote\_count} $\geq 20$ so that ratings based on very few votes do not dominate. Vote count was used only for this filter.
+\end{itemize}
+Both targets use the same 27 predictors as the classification experiments: $\log_{10}$ budget, runtime, cast size, crew size, release year, release month, an English-language indicator, and 20 one-hot genre columns. The columns \texttt{vote\_average}, \texttt{vote\_count}, \texttt{popularity}, and (for Target 2) \texttt{revenue} were not used as predictors, because they are only observed after release or are snapshot values.
+
+Each data set was split randomly into a training set (70\%) and a test set (30\%) with \texttt{random\_state=42}. For $\log_{10}$ revenue this gives 2,260 training and 969 test movies; for \texttt{vote\_average} it gives 2,896 training and 1,242 test movies. Zero runtime values were treated as missing. Medians were computed on the training set only and used to fill missing values in both the training and the test set, so that no test information reaches the model.
+
+\subsection{Regression Models}
+We trained the same three models on each target:
+\begin{itemize}[leftmargin=*,nosep]
+  \item \textbf{Mean baseline.} It always predicts the mean of the training targets. Every other model has to beat it to be useful.
+  \item \textbf{Linear Regression.} An ordinary least-squares model fitted on the 27 predictors. It assumes that each predictor affects the target additively and linearly.
+  \item \textbf{Random Forest Regressor.} The ensemble used 300 trees, each with a maximum depth of 12 and at least 3 training samples per leaf. It can capture nonlinear effects and interactions, for example between budget and genre.
+\end{itemize}
+Two models were fitted on each of the two targets, so the Assignment~2 requirement of at least two regression models on two different numeric targets is met. The mean baseline is an additional reference and is not counted as one of the two models.
 
 \clearpage
 \raggedbottom

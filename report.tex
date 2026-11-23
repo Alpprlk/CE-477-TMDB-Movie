@@ -60,7 +60,8 @@ We use the TMDB 5000 Movie Data Set, which contains metadata for 4,803 films obt
 
 During the term, we plan to investigate the following questions:
 \begin{enumerate}[leftmargin=*,nosep]
-    \item Which attributes that are available before release, such as budget, runtime, genres, language, and release month, can predict movie revenue? This is a regression problem with \texttt{revenue} as the target.
+    \item Which attributes that are available before release, such as budget, runtime, genres, language, and release month, can predict movie revenue? This is a regression problem; in Assignment~2 we use the return on investment (revenue divided by budget), an attribute derived from \texttt{revenue} and \texttt{budget}, as the target.
+    
     \item Can films be classified into Low, Medium, and High rating groups based on \texttt{vote\_average} using metadata that does not directly encode post-release audience reaction?
     \item Which genres and keywords frequently occur together? We plan to study this with association mining.
     \item Do films form natural groups according to variables such as budget, runtime, genre, and, for descriptive clustering, popularity?
@@ -74,7 +75,7 @@ From these questions we derive four hypotheses, which are examined in the remain
 \end{enumerate}
 We will distinguish predictive features from descriptive variables. In particular, \texttt{vote\_average} and \texttt{vote\_count} are only observed after audience voting has occurred, while the \texttt{popularity} value in this static data set is a time-dependent snapshot. Using these variables as if they were available before release would make a pre-release revenue model unrealistically optimistic.
 
-The rest of this report is organized as follows. Section~\ref{sec:related} reviews related work. Section~\ref{sec:data} describes the data set, its metadata, statistics, categorical and temporal attributes, data-quality issues, numeric distributions, and scatter plots. Section~\ref{sec:prep} describes the preprocessing steps: missing-value handling, outlier detection, discretization, correlation analysis, attribute selection, scaling, encoding, principal component analysis, data augmentation, and imputation. Section~\ref{sec:classification} presents the classification experiments and results.
+The rest of this report is organized as follows. Section~\ref{sec:related} reviews related work. Section~\ref{sec:data} describes the data set, its metadata, statistics, categorical and temporal attributes, data-quality issues, numeric distributions, and scatter plots. Section~\ref{sec:prep} describes the preprocessing steps: missing-value handling, outlier detection, discretization, correlation analysis, attribute selection, scaling, encoding, principal component analysis, data augmentation, and imputation. Section~\ref{sec:classification} presents the classification experiments and results, and Section~\ref{sec:regression} presents the regression experiments.
 
 \section{Background and Related Work}\label{sec:related}
 
@@ -904,7 +905,7 @@ and without them.
 
 \subsection{Preprocessing Summary}
 Table~\ref{tab:p4_summary} summarizes the preprocessing pipeline of this report. The result is a design
-matrix of 3,229 films and 34 columns, with $\log_{10}$ revenue as the regression target. The blockbuster label was used only for the SMOTE augmentation demonstration. Assignment 2 classification uses discretized \texttt{vote\_average} (Section~\ref{sec:classification}). Open decisions for the next milestones are (i) whether budgets and revenues below 10,000 USD are treated as unknown,
+matrix of 3,229 films and 34 columns, with $\log_{10}$ revenue as the regression target. The blockbuster label was used only for the SMOTE augmentation demonstration. Assignment 2 classification uses discretized \texttt{vote\_average} (Section~\ref{sec:classification}), and the regression experiments use two derived targets (Section~\ref{sec:regression}); both use a separate 27-column feature set built from the raw data, described in those sections. Open decisions for the next milestones are (i) whether budgets and revenues below 10,000 USD are treated as unknown,
 (ii) whether the keyword count is kept, since it may be recorded after release, and
 (iii) which of the 34 columns are kept by the embedded selection of the final models. Films with an unknown revenue (1,427) are excluded because revenue is the target. Of the 1,574 films outside the matrix, the other 147 could be recovered by the budget imputation
 above, which we keep as an optional extension.
@@ -1013,6 +1014,27 @@ Random Forest led on all four metrics on both splits, with test accuracy of 0.58
 Fig.~\ref{fig:classification_confusion} shows that errors between adjacent rating groups were more frequent than direct Low--High errors for all four models. For example, Random Forest assigned 78 High-rated movies to Medium and 23 to Low. The reasonably balanced classes make accuracy useful, and macro precision, recall, and F1-score give all three classes equal weight.
 
 Random Forest may benefit from its ability to capture nonlinear interactions among the available movie attributes. Even its scores were moderate, suggesting that the pre-release metadata used here explain only part of the variation in audience ratings.
+
+\section{Regression}\label{sec:regression}
+
+\subsection{Targets and Experimental Setup}
+Instead of predicting a column that is already stored in the data set, we derived two new numeric attributes from the existing columns and used them as regression targets.
+\begin{itemize}[leftmargin=*,nosep]
+  \item \textbf{Target 1: $\log_{10}$ return on investment (ROI).} The return on investment is the ratio of revenue to budget, $\text{ROI}=\text{revenue}/\text{budget}$. A value of 1 means that a film just earned back its budget. The ratio is extremely right-skewed (median 2.30, maximum 12,890), so we modeled $\log_{10}$ ROI. Only the 3,205 movies with a budget and a revenue of at least 10,000 USD were used, because zero budgets and revenues are treated as missing values (Section~\ref{sec:data_quality}) and values below 10,000 USD are suspiciously small and would produce extreme ratios.
+  \item \textbf{Target 2: weighted rating.} The raw \texttt{vote\_average} of a film with few votes is unreliable. We therefore used the weighted rating $WR=\frac{v}{v+m}R+\frac{m}{v+m}C$, where $R$ is \texttt{vote\_average}, $v$ is \texttt{vote\_count}, $m=20$ is the minimum number of votes, and $C=6.26$ is the mean rating of all films. The formula pulls ratings that rest on few votes toward the mean. We kept the 4,138 movies with \texttt{vote\_count} $\geq 20$, as in the classification experiments. Vote count and vote average were used only to define this target, never as predictors.
+\end{itemize}
+Both targets use the same 27 predictors as the classification experiments: $\log_{10}$ budget, runtime, cast size, crew size, release year, release month, an English-language indicator, and 20 one-hot genre columns. The columns \texttt{vote\_average}, \texttt{vote\_count}, \texttt{popularity}, and \texttt{revenue} were not used as predictors, because they are only observed after release or are snapshot values.
+
+Each data set was split randomly into a training set (70\%) and a test set (30\%) with \texttt{random\_state=42}. For $\log_{10}$ ROI this gives 2,243 training and 962 test movies; for the weighted rating it gives 2,896 training and 1,242 test movies. Zero runtime values were treated as missing. Medians were computed on the training set only and used to fill missing values in both the training and the test set, so that no test information reaches the model. The constant $C$ was computed once on all 4,138 films, as were the class limits in the classification experiments.
+
+\subsection{Regression Models}
+We trained the same three models on each target:
+\begin{itemize}[leftmargin=*,nosep]
+  \item \textbf{Mean baseline.} It always predicts the mean of the training targets. Every other model has to beat it to be useful.
+  \item \textbf{Linear Regression.} An ordinary least-squares model fitted on the 27 predictors. It assumes that each predictor affects the target additively and linearly.
+  \item \textbf{Random Forest Regressor.} The ensemble used 300 trees, each with a maximum depth of 12 and at least 3 training samples per leaf. It can capture nonlinear effects and interactions, for example between budget and genre.
+\end{itemize}
+Two models were fitted on each of the two targets, so the Assignment~2 requirement of at least two regression models on two different numeric targets is met. The mean baseline is an additional reference and is not counted as one of the two models.
 
 \clearpage
 \raggedbottom

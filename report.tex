@@ -938,11 +938,11 @@ Augmentation & SMOTE raises recall, not AUC; same as class weights \\
 \section{Classification}\label{sec:classification}
 
 \subsection{Target and Experimental Setup}
-To reduce the influence of ratings based on very few votes, we kept movies with \texttt{vote\_count} $\geq 20$, leaving 4,138 movies. Vote count was used only for this filter. Quantile-based discretization of \texttt{vote\_average} divided the filtered sample into three approximately equal groups. For rating $r$, the Low group ($1.9 \leq r \leq 5.9$) contains 1,412 movies (34.1\%), the Medium group ($5.9 < r \leq 6.7$) contains 1,514 (36.6\%), and the High group ($6.7 < r \leq 8.5$) contains 1,212 (29.3\%).
+To reduce the influence of ratings based on very few votes, we kept movies with \texttt{vote\_count} $\geq 20$, leaving 4,138 movies. Vote count was used only for this filter and never as a predictor. Because vote count is only known after release, the filter also restricts the sample to films that received at least some audience attention, so the results may not transfer to very obscure films. Quantile-based discretization of \texttt{vote\_average} divided the filtered sample into three approximately equal groups. For rating $r$, the Low group ($1.9 \leq r \leq 5.9$) contains 1,412 movies (34.1\%), the Medium group ($5.9 < r \leq 6.7$) contains 1,514 (36.6\%), and the High group ($6.7 < r \leq 8.5$) contains 1,212 (29.3\%). The cut points were computed on all filtered movies before splitting; computing them on the training set alone gives the same cut points (5.9 and 6.7), so this choice does not leak information from the validation or test data.
 
-Stratified splitting with \texttt{random\_state=42} preserved the class proportions across the training set (2,482 movies, 60\%), validation set (828 movies, 20\%), and test set (828 movies, 20\%).
+Stratified splitting with \texttt{random\_state=42} preserved the class proportions across the training set (2,482 movies, 60\%), validation set (828 movies, 20\%), and test set (828 movies, 20\%). The hyperparameters below were fixed in advance and were not tuned on the validation set; the validation set was used to check that performance is stable before the final evaluation on the test set.
 
-The 27 predictors were budget, runtime, cast size, crew size, release year, release month, an English-language indicator, and 20 one-hot genre columns. The feature matrix excluded \texttt{vote\_average}, \texttt{vote\_count}, \texttt{popularity}, and \texttt{revenue}. Zero budget and runtime values were treated as missing. We computed medians for budget, runtime, release year, and release month from the training set alone and used those medians for imputation in all three splits to avoid leakage from validation and test data.
+The 27 predictors were budget, runtime, cast size, crew size, release year, release month, an English-language indicator, and 20 one-hot genre columns. The feature matrix excluded \texttt{vote\_average}, \texttt{vote\_count}, \texttt{popularity}, and \texttt{revenue}. Zero budget and runtime values were treated as missing. We computed medians for budget, runtime, release year, and release month from the training set alone and used those medians for imputation in all three splits to avoid leakage from validation and test data. Unlike Section~\ref{sec:prep}, where unknown budgets were left unknown, missing budgets were filled with the training median here (601 of the 4,138 movies, 14.5\%) so that films without budget information could still be classified. This is a simplification: the imputation analysis in Section~\ref{sec:prep} showed that films with an unknown budget tend to be smaller productions, so the median probably overstates their budgets.
 
 \subsection{Classification Algorithms}
 \begin{itemize}[leftmargin=*,nosep]
@@ -954,14 +954,25 @@ The 27 predictors were budget, runtime, cast size, crew size, release year, rele
 For Logistic Regression and KNN, the scaler was fitted on the training set and applied to validation and test inputs.
 
 \subsection{Visualization}
-Fig.~\ref{fig:classification_tree} shows the top of the fitted Decision Tree, whose first split is on runtime. Fig.~\ref{fig:classification_comparison} compares the models across the four test metrics. The test confusion matrices in Fig.~\ref{fig:classification_confusion} show actual classes by row and predicted classes by column.
+Fig.~\ref{fig:classification_tree} shows the top of the fitted Decision Tree. The first split is on runtime: of the 730 training films longer than 116.5 minutes, 362 (49.6\%) are rated High, and among the 177 films longer than 139.5 minutes the share rises to 72\%. Among the shorter films, the second split separates Drama from other genres; 542 of the 1,052 short non-Drama films (51.5\%) are rated Low. Long films and dramas therefore tend to receive higher ratings, while short films outside the Drama genre tend to receive lower ones.
+
+Fig.~\ref{fig:classification_importance} shows the feature importance of the Random Forest. Runtime is the most important attribute (0.19), followed by budget (0.12), release year (0.12), cast size (0.11), and crew size (0.10). Among the genres, only Drama (0.06) contributes noticeably, which agrees with the splits of the Decision Tree.
+
+Fig.~\ref{fig:classification_comparison} compares the models across the four test metrics. The test confusion matrices in Fig.~\ref{fig:classification_confusion} show actual classes by row and predicted classes by column.
 
 \begin{figure*}[!t]
 \centering
 \includegraphics[width=\textwidth]{classification_decision_tree.png}
-\caption{Fitted Decision Tree with a maximum training depth of 6. Only the first three levels are displayed for readability.}
+\caption{Fitted Decision Tree with a maximum training depth of 6. Only the first three levels are displayed for readability. The \texttt{value} counts in each node are given in alphabetical class order (High, Low, Medium).}
 \label{fig:classification_tree}
 \end{figure*}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\columnwidth]{classification_feature_importance.png}
+\caption{Random Forest feature importance (mean decrease in impurity) for the twelve most important attributes.}
+\label{fig:classification_importance}
+\end{figure}
 
 \begin{figure*}[!t]
 \centering
@@ -981,7 +992,7 @@ Fig.~\ref{fig:classification_tree} shows the top of the fitted Decision Tree, wh
 \end{figure*}
 
 \subsection{Performance Comparison}
-Table~\ref{tab:classification_metrics} reports validation and test accuracy, precision, recall, and F1-score. Precision, recall, and F1-score are macro-averaged across Low, Medium, and High.
+Table~\ref{tab:classification_metrics} reports validation and test accuracy, precision, recall, and F1-score. Precision, recall, and F1-score are macro-averaged across Low, Medium, and High. As a reference point, the table also includes a majority baseline that always predicts the most frequent training class (Medium). Table~\ref{tab:classification_overfit} compares the accuracy of each model on the training, validation, and test sets.
 
 \begin{table}[t]
 \caption{Classification Performance on Validation and Test Sets}
@@ -1004,16 +1015,37 @@ Decision Tree & 0.5290 & 0.5397 & 0.5296 & 0.5326 \\
 Random Forest & 0.5833 & 0.5965 & 0.5848 & 0.5889 \\
 Logistic Regression & 0.5628 & 0.5778 & 0.5626 & 0.5667 \\
 KNN & 0.5507 & 0.5548 & 0.5527 & 0.5504 \\
+Majority baseline & 0.3659 & 0.1220 & 0.3333 & 0.1786 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\caption{Accuracy on the Training, Validation, and Test Sets}
+\label{tab:classification_overfit}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Model & Train & Validation & Test & Train $-$ Test \\
+\midrule
+Decision Tree & 0.5894 & 0.5181 & 0.5290 & 0.0605 \\
+Random Forest & 0.8457 & 0.5725 & 0.5833 & 0.2624 \\
+Logistic Regression & 0.5500 & 0.5495 & 0.5628 & $-$0.0128 \\
+KNN & 0.5741 & 0.5133 & 0.5507 & 0.0234 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{Discussion}
-Random Forest led on all four metrics on both splits, with test accuracy of 0.5833 and macro F1-score of 0.5889. Logistic Regression ranked second on the test set, with accuracy of 0.5628 and macro F1-score of 0.5667. The Decision Tree and KNN scored lower overall. Validation and test scores were close, with no obvious sign of severe overfitting in this split.
+All four models clearly outperform the majority baseline. Random Forest reached a test accuracy of 0.5833, about 22 percentage points above the baseline accuracy of 0.3659, and its macro F1-score of 0.5889 is far above the baseline value of 0.1786. Random Forest obtained the highest scores on all four metrics on both the validation and the test set, and Logistic Regression ranked second. However, the gap between the two models is small. On the 828 test movies, Random Forest was correct on 96 movies where Logistic Regression was wrong, and Logistic Regression was correct on 79 movies where Random Forest was wrong. A McNemar test on these counts gives $p = 0.23$, so the accuracy difference between Random Forest and Logistic Regression is not statistically significant. Random Forest is therefore slightly ahead, but the data do not show that it is clearly the better model.
 
-Fig.~\ref{fig:classification_confusion} shows that errors between adjacent rating groups were more frequent than direct Low--High errors for all four models. For example, Random Forest assigned 78 High-rated movies to Medium and 23 to Low. The reasonably balanced classes make accuracy useful, and macro precision, recall, and F1-score give all three classes equal weight.
+Validation and test scores were close for all models, but Table~\ref{tab:classification_overfit} shows that Random Forest overfits the training data: its training accuracy of 0.8457 is 26 points higher than its test accuracy. The Decision Tree shows a smaller gap (6 points), while Logistic Regression has almost no gap, which is expected for a simple linear model. Despite its overfitting, Random Forest still generalized at least as well as the other models, because averaging many trees reduces the variance of the individual trees.
 
-Random Forest may benefit from its ability to capture nonlinear interactions among the available movie attributes. Even its scores were moderate, suggesting that the pre-release metadata used here explain only part of the variation in audience ratings.
+Fig.~\ref{fig:classification_confusion} shows that errors between adjacent rating groups were more frequent than direct Low--High errors for all four models. For example, Random Forest assigned 78 High-rated movies to Medium and only 23 to Low. Medium is the hardest class: its test recall is between 0.44 (KNN) and 0.52 (Random Forest), while the recall for Low is between 0.62 and 0.68. Logistic Regression, for example, classified only 152 of the 303 Medium movies correctly. This is expected, because the Medium class borders both other classes and covers a narrow rating range (6.0 to 6.7), so small prediction errors move a film into a neighboring class. The reasonably balanced classes make accuracy useful, and macro precision, recall, and F1-score give all three classes equal weight.
+
+Random Forest may benefit from its ability to capture nonlinear interactions among the available movie attributes, such as the combined effect of runtime and genre seen in the Decision Tree. Even its scores were moderate, suggesting that the pre-release metadata used here explain only part of the variation in audience ratings.
 
 \section{Regression}\label{sec:regression}
 

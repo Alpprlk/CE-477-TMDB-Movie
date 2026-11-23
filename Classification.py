@@ -153,6 +153,14 @@ print(f"\nTrain: {len(X_train)} ({len(X_train)/len(X):.0%})")
 print(f"Validation: {len(X_val)} ({len(X_val)/len(X):.0%})")
 print(f"Test: {len(X_test)} ({len(X_test)/len(X):.0%})")
 
+# The class cut points above were computed on all filtered movies before the
+# split. Check that computing them on the training set alone gives the same
+# cut points, so this choice does not leak information from validation/test.
+train_edges = df.loc[X_train.index, "vote_average"].quantile([1 / 3, 2 / 3])
+print("\nCut points from the training set only:",
+      [round(float(e), 2) for e in train_edges],
+      "| from all filtered movies:", [round(float(e), 2) for e in bin_edges[1:3]])
+
 
 # ======================================================================
 # TASK 3, ALGORITHM 1: Decision Tree
@@ -272,4 +280,79 @@ ax.set_ylabel("Score")
 ax.set_ylim(0, 1)
 ax.legend(title="Model", loc="upper center", ncol=4)
 fig.savefig(figures_dir / "classification_model_comparison.png", dpi=180)
+plt.close(fig)
+
+
+# ======================================================================
+# EXTRA ANALYSIS FOR THE DISCUSSION
+# ======================================================================
+
+# --- Baseline: always predict the most frequent class of the training set ---
+majority_class = y_train.value_counts().idxmax()
+baseline_pred = np.full(len(y_test), majority_class)
+b_prec, b_rec, b_f1, _ = precision_recall_fscore_support(
+    y_test, baseline_pred, labels=class_labels, average="macro", zero_division=0
+)
+print("\n" + "=" * 76)
+print(f"BASELINE (always predict '{majority_class}') ON THE TEST SET")
+print("=" * 76)
+print(f"Accuracy {accuracy_score(y_test, baseline_pred):.4f} | "
+      f"Macro Precision {b_prec:.4f} | Macro Recall {b_rec:.4f} | Macro F1 {b_f1:.4f}")
+
+# --- Train vs validation vs test accuracy: shows overfitting ---
+acc_rows = []
+for model_name, model in models.items():
+    acc_rows.append({
+        "Model": model_name,
+        "Train": accuracy_score(y_train, model.predict(X_train)),
+        "Validation": accuracy_score(y_val, model.predict(X_val)),
+        "Test": accuracy_score(y_test, model.predict(X_test)),
+    })
+acc_table = pd.DataFrame(acc_rows).set_index("Model")
+acc_table["Train - Test"] = acc_table["Train"] - acc_table["Test"]
+print("\n" + "=" * 76)
+print("ACCURACY ON TRAIN / VALIDATION / TEST")
+print("=" * 76)
+print(acc_table.to_string(float_format="{:.4f}".format))
+acc_table.to_csv(BASE_DIR / "classification_train_val_test_accuracy.csv")
+
+# --- McNemar test: is Random Forest really better than Logistic Regression? ---
+# Both models are evaluated on the same 828 test movies, so we compare them on
+# the movies where exactly one of the two models is correct (exact binomial test).
+from scipy.stats import binomtest
+
+rf_correct = rf.predict(X_test) == y_test.values
+lr_correct = logreg.predict(X_test) == y_test.values
+only_rf = int((rf_correct & ~lr_correct).sum())
+only_lr = int((~rf_correct & lr_correct).sum())
+p_value = binomtest(only_rf, only_rf + only_lr, 0.5).pvalue
+print("\n" + "=" * 76)
+print("McNEMAR TEST: RANDOM FOREST vs LOGISTIC REGRESSION (TEST SET)")
+print("=" * 76)
+print(f"Only RF correct: {only_rf} | Only LR correct: {only_lr} | p-value: {p_value:.3f}")
+
+# --- Per-class recall on the test set (which class is hardest?) ---
+print("\n" + "=" * 76)
+print("PER-CLASS RECALL ON THE TEST SET")
+print("=" * 76)
+_, per_class_recall, _, _ = zip(*[
+    precision_recall_fscore_support(y_test, m.predict(X_test), labels=class_labels, zero_division=0)
+    for m in models.values()
+])
+print(pd.DataFrame(per_class_recall, index=models.keys(), columns=class_labels)
+        .to_string(float_format="{:.3f}".format))
+
+# --- Random Forest feature importance ---
+importance = pd.Series(rf.feature_importances_, index=feature_cols).sort_values()
+top_importance = importance.tail(12)
+print("\n" + "=" * 76)
+print("RANDOM FOREST FEATURE IMPORTANCE (TOP 12)")
+print("=" * 76)
+print(top_importance[::-1].to_string(float_format="{:.3f}".format))
+
+fig, ax = plt.subplots(figsize=(7, 5), layout="constrained")
+top_importance.plot.barh(ax=ax, color="tab:orange")
+ax.set_title("Random Forest Feature Importance (Top 12)")
+ax.set_xlabel("Mean decrease in impurity")
+fig.savefig(figures_dir / "classification_feature_importance.png", dpi=180)
 plt.close(fig)

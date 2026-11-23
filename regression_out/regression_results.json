@@ -1,0 +1,76 @@
+{
+  "genres": [
+    "Action",
+    "Adventure",
+    "Animation",
+    "Comedy",
+    "Crime",
+    "Documentary",
+    "Drama",
+    "Family",
+    "Fantasy",
+    "Foreign",
+    "History",
+    "Horror",
+    "Music",
+    "Mystery",
+    "Romance",
+    "Science Fiction",
+    "TV Movie",
+    "Thriller",
+    "War",
+    "Western"
+  ],
+  "log10_revenue": {
+    "n_total": 3229,
+    "n_train": 2260,
+    "n_test": 969,
+    "n_features": 27,
+    "models": {
+      "Mean baseline": {
+        "rmse": 0.8754548198046846,
+        "corr": null,
+        "mape": 0.10092848659019454,
+        "rmse_usd": 234734664.63147226,
+        "mape_usd": 6658.921595337373
+      },
+      "Linear Regression": {
+        "rmse": 0.6625884058343599,
+        "corr": 0.6536942403984877,
+        "mape": 0.07231649771216818,
+        "rmse_usd": 166290308.89462748,
+        "mape_usd": 864.8933249241402
+      },
+      "Random Forest": {
+        "rmse": 0.6563807158795276,
+        "corr": 0.6624898722895181,
+        "mape": 0.06991759453190545,
+        "rmse_usd": 152201590.09431753,
+        "mape_usd": 280.0242462854261
+      }
+    }
+  },
+  "vote_average": {
+    "n_total": 4138,
+    "n_train": 2896,
+    "n_test": 1242,
+    "n_features": 27,
+    "models": {
+      "Mean baseline": {
+        "rmse": 0.8712640585951655,
+        "corr": null,
+        "mape": 0.11730360308062313
+      },
+      "Linear Regression": {
+        "rmse": 0.7089071051235033,
+        "corr": 0.5845998045043761,
+        "mape": 0.0935203938924997
+      },
+      "Random Forest": {
+        "rmse": 0.7001542369283122,
+        "corr": 0.5983539455993494,
+        "mape": 0.09203469631196667
+      }
+    }
+  }
+}

@@ -1,4 +1,7 @@
 """CE 477 Assignment #2 - Regression (steps 1-3: targets, 70/30 split, models).
+Both targets are NEW numeric attributes derived from the data set (not existing columns):
+  1) log10 return on investment = log10(revenue / budget)
+  2) weighted rating = Bayesian-shrunk vote_average (IMDb formula)
 
 Input : tmdb_5000_movies.csv, tmdb_5000_credits.csv  (Kaggle TMDB 5000)
 Output: regression_out/regression_results.json, regression_out/regression_predictions.csv
@@ -76,22 +79,34 @@ def run(name, d, target, log_target):
         row = {"rmse": rmse(yte, p),
                "corr": float(np.corrcoef(yte, p)[0, 1]) if mname != "Mean baseline" else None,
                "mape": float(mean_absolute_percentage_error(yte, p))}
-        if log_target:   # also on the original USD scale
-            row["rmse_usd"] = rmse(10 ** yte, 10 ** p)
-            row["mape_usd"] = float(mean_absolute_percentage_error(10 ** yte, 10 ** p))
+        if log_target:   # also on the original ratio scale
+            row["rmse_ratio"] = rmse(10 ** yte, 10 ** p)
+            row["mape_ratio"] = float(mean_absolute_percentage_error(10 ** yte, 10 ** p))
         out["models"][mname] = row
     return out, preds
 
 
-# Target 1: log10 revenue, films with known budget and revenue (complete cases)
-d1 = df[(df["budget"] > 0) & (df["revenue"] > 0)]
-r1, p1 = run("log10_revenue", d1, "revenue", True)
+# Target 1 (derived): log10 return on investment, ROI = revenue / budget.
+# Films with budget or revenue below 10,000 USD are dropped (suspicious values).
+d1 = df[(df["budget"] >= 10000) & (df["revenue"] >= 10000)].copy()
+d1["roi"] = d1["revenue"] / d1["budget"]
+r1, p1 = run("log10_roi", d1, "roi", True)
 
-# Target 2: vote_average, films with vote_count >= 20 (same filter as classification)
-d2 = df[df["vote_count"] >= 20]
-r2, p2 = run("vote_average", d2, "vote_average", False)
+# Target 2 (derived): weighted rating (IMDb formula)
+#   WR = v/(v+m) * R + m/(v+m) * C
+# R = vote_average, v = vote_count, m = 20 (minimum votes, same as the classification
+# filter), C = mean vote_average of the films with vote_count >= 20.
+# It pulls ratings that rest on few votes toward the mean.
+d2 = df[df["vote_count"] >= 20].copy()
+M = 20
+C = d2["vote_average"].mean()
+d2["weighted_rating"] = (d2["vote_count"] / (d2["vote_count"] + M)) * d2["vote_average"] \
+                        + (M / (d2["vote_count"] + M)) * C
+r2, p2 = run("weighted_rating", d2, "weighted_rating", False)
+r2["C_mean_rating"] = float(C)
+r2["m_min_votes"] = M
 
-res = {"genres": genres, "log10_revenue": r1, "vote_average": r2}
+res = {"genres": genres, "log10_roi": r1, "weighted_rating": r2}
 json.dump(res, open(OUT + "regression_results.json", "w"), indent=2)
 pd.concat([p1, p2]).to_csv(OUT + "regression_predictions.csv")
 print(json.dumps(res, indent=2))

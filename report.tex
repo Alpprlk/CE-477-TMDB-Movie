@@ -11,6 +11,7 @@
 \usepackage{url}
 \usepackage{enumitem}
 \usepackage{booktabs}
+\usepackage{multirow}
 
 \title{CE 477 Term Project: Predicting Movie Revenue and Ratings from TMDB Metadata}
 
@@ -1067,7 +1068,64 @@ We trained the same three models on each target:
   \item \textbf{Random Forest Regressor.} The ensemble used 300 trees, each with a maximum depth of 12 and at least 3 training samples per leaf. It can capture nonlinear effects and interactions, for example between budget and genre.
 \end{itemize}
 Two models were fitted on each of the two targets, so the Assignment~2 requirement of at least two regression models on two different numeric targets is met. The mean baseline is an additional reference and is not counted as one of the two models.
-
+\subsection{Visualization}
+Fig.~\ref{fig:reg_roi} and Fig.~\ref{fig:reg_wr} plot the actual test values against the values predicted by Linear Regression and Random Forest. The dashed line is the ideal case in which every prediction equals the true value, and the red line is the least-squares line fitted to the points. Fig.~\ref{fig:reg_comparison} compares the three models on the three metrics.
+ 
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=0.85\textwidth]{regression_scatter_log10_roi.png}
+\caption{Test set ($n=962$): actual versus predicted $\log_{10}$ ROI for Linear Regression (left) and Random Forest (right).}
+\label{fig:reg_roi}
+\end{figure*}
+ 
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=0.85\textwidth]{regression_scatter_weighted_rating.png}
+\caption{Test set ($n=1{,}242$): actual versus predicted weighted rating for Linear Regression (left) and Random Forest (right).}
+\label{fig:reg_wr}
+\end{figure*}
+ 
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=0.9\textwidth]{regression_model_comparison.png}
+\caption{Test-set RMSE, MAPE and correlation coefficient of the three models on both targets.}
+\label{fig:reg_comparison}
+\end{figure*}
+ 
+\subsection{Performance Comparison}
+Table~\ref{tab:reg_metrics} reports the root mean-squared error (RMSE), the mean absolute percentage error (MAPE) and the Pearson correlation coefficient between actual and predicted values on the 30\% test set. The correlation is not defined for the mean baseline because its prediction is constant. RMSE is expressed in the unit of the target: $\log_{10}$ ROI units and rating points.
+ 
+\begin{table}[t]
+\caption{Regression Performance on the Test Set}
+\label{tab:reg_metrics}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}llrrr@{}}
+\toprule
+Target & Model & RMSE & MAPE & Corr. \\
+\midrule
+\multirow{3}{*}{$\log_{10}$ ROI ($n=962$)}
+ & Mean baseline & 0.6240 & 2.4662 & -- \\
+ & Linear Regression & 0.5853 & \textbf{1.7100} & 0.3530 \\
+ & Random Forest & \textbf{0.5708} & 2.0090 & \textbf{0.4072} \\
+\midrule
+\multirow{3}{*}{Weighted rating ($n=1{,}242$)}
+ & Mean baseline & 0.7832 & 0.1021 & -- \\
+ & Linear Regression & 0.6320 & 0.0810 & 0.5945 \\
+ & Random Forest & \textbf{0.6158} & \textbf{0.0794} & \textbf{0.6199} \\
+\bottomrule
+\end{tabular}
+\end{table}
+ 
+\subsection{Discussion}
+\textit{Weighted rating.} Both models clearly beat the mean baseline: Linear Regression lowers the RMSE from 0.783 to 0.632 and Random Forest to 0.616, a reduction of about 19\% and 21\%. The correlations of 0.59 and 0.62 mean that the pre-release metadata explain roughly 35--38\% of the variance of the rating ($r^2$). In Fig.~\ref{fig:reg_wr} the points form a visible upward band, but the spread around the line is large, so individual ratings remain hard to predict. Random Forest is slightly better on all three metrics, and the small gap suggests that the relationship is mostly additive and only mildly nonlinear. This agrees with the classification results, where Random Forest also led but only moderately.
+ 
+\textit{$\log_{10}$ ROI.} This target is much harder. The best RMSE (0.571, Random Forest) is only 8.5\% below the baseline value of 0.624, and the correlations are 0.35 and 0.41. Fig.~\ref{fig:reg_roi} shows why: predictions are concentrated in a narrow range (90\% of the Random Forest predictions lie between $-0.1$ and $0.75$), while actual values range from about $-3$ (almost total loss) to $+3.6$. Neither model can predict the extreme successes or failures, which depend on factors that are not in the metadata, such as marketing, cast popularity and the quality of the film. Random Forest has the lower RMSE and the higher correlation, so it captures some nonlinear structure that Linear Regression misses, but the improvement is modest.
+ 
+\textit{About MAPE.} For $\log_{10}$ ROI the MAPE is not reliable. The target is close to zero for films that roughly break even, and a percentage error divided by a value near zero becomes very large, which explains values of 1.7 to 2.5. This is also why Linear Regression has a lower MAPE than Random Forest (1.71 against 2.01) although it is worse on RMSE and correlation; the difference comes from a few films with actual values near zero. On the original ROI scale the MAPE is about 6.8 for all three models (6.84, 6.83 and 6.79), so no model is useful when the error is measured in percent of the real ROI. For the weighted rating, whose values lie between about 3.2 and 8.5, MAPE is meaningful: the models are off by about 8\% on average, compared with 10.2\% for the baseline. We therefore base the comparison mainly on RMSE and correlation.
+ 
+\textit{Limitations.} The predictors are only pre-release metadata, and the split was made once with \texttt{random\_state=42}, so the differences between Linear Regression and Random Forest (for example 0.632 against 0.616 RMSE) may change with another split. Ratings are also better predicted than financial return, which confirms the hypothesis in the introduction that revenue-related outcomes depend strongly on information that is unavailable before release.
 \clearpage
 \raggedbottom
 \section*{AI Use Disclosure}

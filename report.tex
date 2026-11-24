@@ -906,7 +906,7 @@ and without them.
 
 \subsection{Preprocessing Summary}
 Table~\ref{tab:p4_summary} summarizes the preprocessing pipeline of this report. The result is a design
-matrix of 3,229 films and 34 columns, with $\log_{10}$ revenue as the regression target. The blockbuster label was used only for the SMOTE augmentation demonstration. Assignment 2 classification uses discretized \texttt{vote\_average} (Section~\ref{sec:classification}), and the regression experiments use two derived targets (Section~\ref{sec:regression}); both use a separate 27-column feature set built from the raw data, described in those sections. Open decisions for the next milestones are (i) whether budgets and revenues below 10,000 USD are treated as unknown,
+matrix of 3,229 films and 34 columns, with $\log_{10}$ revenue as the reference target for the preprocessing analyses. The blockbuster label was used only for the SMOTE augmentation demonstration. Assignment 2 classification uses discretized \texttt{vote\_average} (Section~\ref{sec:classification}), and the regression experiments use two derived targets (Section~\ref{sec:regression}); both use a separate 27-column feature set built from the raw data, described in those sections. Open decisions for the next milestones are (i) whether budgets and revenues below 10,000 USD are treated as unknown,
 (ii) whether the keyword count is kept, since it may be recorded after release, and
 (iii) which of the 34 columns are kept by the embedded selection of the final models. Films with an unknown revenue (1,427) are excluded because revenue is the target. Of the 1,574 films outside the matrix, the other 147 could be recovered by the budget imputation
 above, which we keep as an optional extension.
